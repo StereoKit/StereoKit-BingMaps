@@ -1,7 +1,5 @@
 ﻿using StereoKit;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 class Terrain
 {
@@ -17,34 +15,51 @@ class Terrain
         public Matrix transform;
         public int    lod;
     }
+
+    ///////////////////////////////////////////
+    
     Chunk[] chunks;
     Vec3    chunkCenter;
     float   chunkSize;
 
+    Vec3     translation;
+    Vec3     clipCenter;
     float    terrainHeight = 1;
     Vec4     heightSize;
     Vec4     colorSize;
     Material terrainMaterial;
     Mesh[]   meshLods = new Mesh[4];
     LodMode  lodMode  = LodMode.Constant;
+    float    clipRadius = 0.5f;
 
-    public Vec3  Center { 
-        get{ return chunkCenter; } 
-        set{ chunkCenter = value; UpdateChunks(); } }
+    ///////////////////////////////////////////
+    
+    public Vec3 Translation { 
+        get => translation; 
+        set { translation = value; UpdateClipVars(); UpdateChunks(); } }
+    public Vec3 ClipCenter {
+        get => clipCenter;
+        set { clipCenter = value; UpdateClipVars(); } }
+    public float ClipRadius {
+        get => clipRadius;
+        set { clipRadius = value; UpdateClipVars(); } }
     public float Height { 
-        get{ return terrainHeight; } 
-        set{ terrainHeight = value; if (terrainMaterial != null) terrainMaterial["world_height"] = terrainHeight; } }
+        get => terrainHeight;
+        set { terrainHeight = value; terrainMaterial["world_height"] = value; } }
+
     public Material Material => terrainMaterial;
 
+    ///////////////////////////////////////////
+    
     public Terrain(int chunkDetail, float chunkSize, int chunkGrid)
     {
         this.chunkSize = chunkSize;
         chunkCenter = Vec3.Zero;
+        translation = Vec3.Zero;
 
         terrainMaterial = new Material(Shader.FromFile(@"terrain.hlsl"));
         
         int subdivisions = chunkDetail;
-
         for (int i = 0; i < meshLods.Length; i++)
         {
             meshLods[i]  = Mesh.GeneratePlane(Vec2.One*chunkSize, subdivisions);
@@ -56,17 +71,16 @@ class Terrain
 
         chunks = new Chunk[chunkGrid * chunkGrid];
         float half = (int)(chunkGrid/2.0f);
-        for (int y = 0; y < chunkGrid; y++)
-        {
-            for (int x = 0; x < chunkGrid; x++)
-            {
-                Vec3 pos = new Vec3(x - half, 0, y - half) * chunkSize;
-                chunks[x+y*chunkGrid].centerOffset = pos;
-
-            }
-        }
+        for (int y = 0; y < chunkGrid; y++) {
+        for (int x = 0; x < chunkGrid; x++)  {
+            Vec3 pos = new Vec3(x - half, 0, y - half) * chunkSize;
+            chunks[x+y*chunkGrid].centerOffset = pos;
+        } }
+        UpdateClipVars();
         UpdateChunks();
     }
+
+    ///////////////////////////////////////////
 
     public void SetHeightData(Tex heightData, Vec3 heightDimensions, Vec2 heightCenter)
     {
@@ -77,6 +91,8 @@ class Terrain
         terrainMaterial["world_height"] = heightDimensions.y;
     }
 
+    ///////////////////////////////////////////
+
     public void SetColorData(Tex colorData, Vec2 colorDimensions, Vec2 colorCenter)
     {
         colorSize.XY = colorCenter - colorDimensions / 2;
@@ -85,12 +101,37 @@ class Terrain
         terrainMaterial["color_size" ] = colorSize;
     }
 
+    ///////////////////////////////////////////
+
+    void UpdateClipVars()
+    {
+        terrainMaterial["clip_vars"] = new Vec4(
+            translation.x + clipCenter.x, 
+            translation.y + clipCenter.y, 
+            translation.z + clipCenter.z, 
+            clipRadius);
+    }
+
+    ///////////////////////////////////////////
+
     void UpdateChunks() 
     {
+        terrainMaterial["world_size"] = new Vec4(
+            heightSize.x + translation.x,
+            heightSize.y + translation.z,
+            heightSize.z, heightSize.w);
+
+        terrainMaterial["color_size"] = new Vec4(
+            colorSize.x + translation.x,
+            colorSize.y + translation.z,
+            colorSize.z, colorSize.w);
+
         for (int i = 0; i < chunks.Length; i++)
-            chunks[i].transform = Matrix.T(chunks[i].centerOffset+chunkCenter);
+            chunks[i].transform = Matrix.T(chunks[i].centerOffset+chunkCenter+translation);
         UpdateLod();
     }
+
+    ///////////////////////////////////////////
 
     void UpdateLod()
     {
@@ -114,6 +155,8 @@ class Terrain
         }
     }
 
+    ///////////////////////////////////////////
+
     public void Update()
     {
         Vec3 offset = Input.Head.position - chunkCenter;
@@ -130,21 +173,6 @@ class Terrain
         for (int i = 0; i < chunks.Length; i++)
         {
             meshLods[chunks[i].lod].Draw(terrainMaterial, chunks[i].transform);
-
-            Color c     = Color.HSV(chunks[i].lod * 0.25f, 1, 1);
-            Vec3  start = chunks[i].centerOffset + chunkCenter;
-            /*Lines.Add(
-                start + new Vec3(chunkSize*0.45f, 0.2f, chunkSize*0.45f),
-                start + new Vec3(chunkSize*0.45f, 0.2f, chunkSize*-0.45f), c, 0.01f);
-            Lines.Add(
-                start + new Vec3(chunkSize * -0.45f, 0.2f, chunkSize * 0.45f),
-                start + new Vec3(chunkSize * -0.45f, 0.2f, chunkSize * -0.45f), c, 0.01f);
-            Lines.Add(
-                start + new Vec3(chunkSize *  0.45f, 0.2f, chunkSize * -0.45f),
-                start + new Vec3(chunkSize * -0.45f, 0.2f, chunkSize * -0.45f), c, 0.01f);
-            Lines.Add(
-                start + new Vec3(chunkSize *  0.45f, 0.2f, chunkSize * 0.45f),
-                start + new Vec3(chunkSize * -0.45f, 0.2f, chunkSize * 0.45f), c, 0.01f);*/
         }
     }
 }

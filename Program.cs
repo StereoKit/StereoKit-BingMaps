@@ -21,10 +21,12 @@ class Program
     static Tex         mapColor  = null;
     static Terrain     terrain;
     static BoundingBox queryBounds = new BoundingBox(new double[] { 21.8, -159.9, 22.3, -159.1 }); // LatLon of Kauai
-    static float       worldScale = 0.00002f;
+    static float       worldScale = 0.00001f;
     
-    static float justHeight;
-    static float justFinger;
+    static Mesh cylinderMesh;
+
+    static Vec3 justStart;
+    static Vec3 justFinger;
 
     ///////////////////////////////////////////
 
@@ -38,8 +40,11 @@ class Program
             Mesh.GenerateRoundedCube(Vec3.One, 0.2f),
             Default.Material);
 
+        cylinderMesh = Mesh.GenerateCylinder(1,1,Vec3.Up, 32);
+
         terrain = new Terrain(32, 1, 7);
-        terrain.Center -= Vec3.Up * 0.5f;
+        terrain.Translation = Vec3.Up*-0.5f;
+        terrain.ClipCenter = -terrain.Translation;
         RequestColor();
         RequestHeight();
 
@@ -48,16 +53,22 @@ class Program
             Hand hand = Input.Hand(Handed.Right);
             if (hand.IsJustPinched) 
             {
-                justHeight = terrain.Height;
-                justFinger = hand[FingerId.Index, JointId.Tip].position.y;
+                justStart  = terrain.Translation;
+                justFinger = hand[FingerId.Index, JointId.Tip].position;
             }
             if (hand.IsPinched)
             {
-                terrain.Height = justHeight + (hand[FingerId.Index, JointId.Tip].position.y - justFinger)*3;
+                Vec3 newPos = justStart + (hand[FingerId.Index, JointId.Tip].position - justFinger);
+                newPos.y = -0.5f;
+                terrain.Translation = newPos;
+                terrain.ClipCenter = -newPos;
+                
             }
             terrain.Material.Wireframe = Input.Hand(Handed.Right).IsGripped;
+
             terrain.Update();
-        })) ;
+            cylinderMesh.Draw(Default.Material, Matrix.TS(Vec3.Up*-0.56f, new Vec3(terrain.ClipRadius*2, 0.1f, terrain.ClipRadius*2)));
+        }));
 
         StereoKitApp.Shutdown();
     }
@@ -87,8 +98,7 @@ class Program
         mapColor.AddressMode = TexAddress.Clamp;
 
         BoundingBox bounds = new BoundingBox(meta.ResourceSets[0].Resources[0].BoundingBox);
-        Log.Info($"Color bounds: {bounds.WestLongitude}, {bounds.EastLongitude}, {bounds.NorthLatitude}, {bounds.SouthLatitude}");
-        BoundsToWorld(queryBounds, bounds, worldScale, out Vec3 size, out Vec2 offset);
+        Geo.BoundsToWorld(queryBounds, bounds, worldScale, out Vec3 size, out Vec2 offset);
         terrain.SetColorData(mapColor,size.XZ, offset);
 
         if (mapColor == null)
@@ -120,43 +130,9 @@ class Program
         mapHeight.AddressMode = TexAddress.Clamp;
 
         BoundingBox bounds = queryBounds;
-        Log.Info($"height bounds: {bounds.WestLongitude}, {bounds.EastLongitude}, {bounds.NorthLatitude}, {bounds.SouthLatitude}");
-        BoundsToWorld(queryBounds, bounds, worldScale, out Vec3 size, out Vec2 offset);
+        Geo.BoundsToWorld(queryBounds, bounds, worldScale, out Vec3 size, out Vec2 offset);
         terrain.SetHeightData(mapHeight, size, offset);
     }
 
     ///////////////////////////////////////////
-
-    const double EarthCircumference = 40075040.0;
-
-    static double DistanceLatitude(double a, double b)
-        => (EarthCircumference*(a-b)) / 360.0;
-
-    static double DistanceLongitude(double a, double b, double latitude)
-        => ((a-b)*EarthCircumference*Math.Cos(latitude*(Math.PI/180.0))) / 360.0;
-
-    static Vec2 BoundsSize(BoundingBox bounds)
-    {
-        return new Vec2(
-            (float)DistanceLongitude(bounds.EastLongitude, bounds.WestLongitude, (bounds.NorthLatitude + bounds.SouthLatitude) / 2),
-            (float)DistanceLatitude (bounds.SouthLatitude, bounds.NorthLatitude));
-    }
-
-    static void BoundsToWorld(BoundingBox queryBox, BoundingBox givenBox, float scale, out Vec3 size, out Vec2 offset)
-    {
-        Vec2 queryCenter = new Vec2(
-            (float)(queryBox.WestLongitude + queryBox.EastLongitude) / 2.0f,
-            (float)(queryBox.NorthLatitude + queryBox.SouthLatitude) / 2.0f);
-        Vec2 givenCenter = new Vec2(
-            (float)(givenBox.WestLongitude + givenBox.EastLongitude) / 2.0f,
-            (float)(givenBox.NorthLatitude + givenBox.SouthLatitude) / 2.0f);
-        offset = new Vec2(
-            (float)DistanceLongitude(givenCenter.x, queryCenter.x, queryCenter.y),
-            (float)DistanceLatitude (givenCenter.y, queryCenter.y)) * scale;
-        size = Vec3.Zero;
-        size.XZ = BoundsSize(givenBox) * scale;
-        size.y = 9000*scale * 4;
-
-        Log.Info($"{size}, {offset}");
-    }
 }
