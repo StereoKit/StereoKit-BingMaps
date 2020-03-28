@@ -51,8 +51,8 @@ psIn vs(vsIn input, uint id : SV_InstanceID) {
 ///////////////////////////////////////////
 
 float4 ps(psIn input) : SV_TARGET{
-	float3 diff = input.world - clip_vars.xyz;
-	float  dist_field = clip_vars.w-dot(diff, diff);
+	float2 diff = input.world.xz - clip_vars.xz;
+	float  dist_field = clip_vars.w -dot(diff, diff);
 	clip( dist_field );
 
 	float4 col  = world_color.Sample(world_color_sampler, input.uv);

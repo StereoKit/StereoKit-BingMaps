@@ -109,7 +109,7 @@ class Terrain
             translation.x + clipCenter.x, 
             translation.y + clipCenter.y, 
             translation.z + clipCenter.z, 
-            clipRadius);
+            clipRadius*clipRadius);
     }
 
     ///////////////////////////////////////////

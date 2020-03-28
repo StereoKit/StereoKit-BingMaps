@@ -40,11 +40,12 @@ class Program
             Mesh.GenerateRoundedCube(Vec3.One, 0.2f),
             Default.Material);
 
-        cylinderMesh = Mesh.GenerateCylinder(1,1,Vec3.Up, 32);
+        cylinderMesh = Mesh.GenerateCylinder(1,1,Vec3.Up, 64);
 
         terrain = new Terrain(32, 1, 7);
         terrain.Translation = Vec3.Up*-0.5f;
         terrain.ClipCenter = -terrain.Translation;
+        terrain.ClipRadius = 0.3f;
         RequestColor();
         RequestHeight();
 
@@ -67,7 +68,7 @@ class Program
             terrain.Material.Wireframe = Input.Hand(Handed.Right).IsGripped;
 
             terrain.Update();
-            cylinderMesh.Draw(Default.Material, Matrix.TS(Vec3.Up*-0.56f, new Vec3(terrain.ClipRadius*2, 0.1f, terrain.ClipRadius*2)));
+            cylinderMesh.Draw(Default.Material, Matrix.TS(Vec3.Up*-0.56f, new Vec3(terrain.ClipRadius*2, 0.1f, terrain.ClipRadius*2)), Color.White*0.5f);
         }));
 
         StereoKitApp.Shutdown();
