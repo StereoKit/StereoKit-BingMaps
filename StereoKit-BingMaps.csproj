@@ -12,6 +12,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Assets\Compass.glb">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Assets\terrain.hlsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

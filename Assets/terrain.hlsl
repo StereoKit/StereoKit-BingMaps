@@ -28,7 +28,7 @@ struct psIn {
 Texture2D    world         : register(t0);
 SamplerState world_sampler : register(s0);
 
-// [texture] world_color black
+// [texture] world_color white
 Texture2D    world_color         : register(t1);
 SamplerState world_color_sampler : register(s1);
 
@@ -56,7 +56,7 @@ float4 ps(psIn input) : SV_TARGET{
 	clip( dist_field );
 
 	float4 col  = world_color.Sample(world_color_sampler, input.uv);
-	float  fade = 1-saturate(dist_field*200);
+	float  fade = 1-saturate(dist_field*300);
 	col.rgb += fade;
 	return col;
 }

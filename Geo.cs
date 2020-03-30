@@ -22,7 +22,7 @@ static class Geo
     {
         return new Vec2(
             (float)DistLongitude(bounds.EastLongitude, bounds.WestLongitude, (bounds.NorthLatitude + bounds.SouthLatitude) / 2),
-            (float)DistLatitude(bounds.SouthLatitude, bounds.NorthLatitude));
+            (float)DistLatitude(bounds.NorthLatitude, bounds.SouthLatitude));
     }
 
     ///////////////////////////////////////////

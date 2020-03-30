@@ -22,8 +22,10 @@ class Program
     static Terrain     terrain;
     static BoundingBox queryBounds = new BoundingBox(new double[] { 21.8, -159.9, 22.3, -159.1 }); // LatLon of Kauai
     static float       worldScale = 0.00001f;
+    static Pose        terrainPose = new Pose(0, 0, -0.5f, Quat.Identity);
     
     static Mesh cylinderMesh;
+    static Model compassModel;
 
     static Vec3 justStart;
     static Vec3 justFinger;
@@ -41,16 +43,20 @@ class Program
             Default.Material);
 
         cylinderMesh = Mesh.GenerateCylinder(1,1,Vec3.Up, 64);
+        compassModel = Model.FromFile("Compass.glb");
 
         terrain = new Terrain(32, 1, 7);
-        terrain.Translation = Vec3.Up*-0.5f;
-        terrain.ClipCenter = -terrain.Translation;
         terrain.ClipRadius = 0.3f;
         RequestColor();
         RequestHeight();
 
         while (StereoKitApp.Step(() =>
-        {
+        {   
+            UI.AffordanceBegin("Terrain", ref terrainPose, new Bounds(new Vec3(terrain.ClipRadius*2, 0.1f, terrain.ClipRadius*2)));
+            terrainPose.orientation = Quat.Identity;
+            UI.AffordanceEnd();
+
+            
             Hand hand = Input.Hand(Handed.Right);
             if (hand.IsJustPinched) 
             {
@@ -60,7 +66,7 @@ class Program
             if (hand.IsPinched)
             {
                 Vec3 newPos = justStart + (hand[FingerId.Index, JointId.Tip].position - justFinger);
-                newPos.y = -0.5f;
+                newPos.y = 0;
                 terrain.Translation = newPos;
                 terrain.ClipCenter = -newPos;
                 
@@ -68,7 +74,28 @@ class Program
             terrain.Material.Wireframe = Input.Hand(Handed.Right).IsGripped;
 
             terrain.Update();
-            cylinderMesh.Draw(Default.Material, Matrix.TS(Vec3.Up*-0.56f, new Vec3(terrain.ClipRadius*2, 0.1f, terrain.ClipRadius*2)), Color.White*0.5f);
+            cylinderMesh.Draw(Default.Material, Matrix.TS(Vec3.Up*-0.04f, new Vec3(terrain.ClipRadius*2, 0.05f, terrain.ClipRadius*2)), Color.White*0.25f);
+
+            Vec3 pos = Vec3.Zero;
+            Vec3 dir = (Input.Head.position - pos);
+            dir.y = 0;
+            dir.Normalize();
+
+            float angle = MathF.Atan2(dir.z, dir.x) * Units.rad2deg;
+            if (angle < 0) angle = 360+angle;
+
+            angle = (int)(angle / 60) * 60 + 30;
+            dir = Vec3.AngleXZ(angle);
+            Vec3 lookat = dir + Vec3.Up;
+            Vec3 menuAt = pos + dir * (terrain.ClipRadius + 0.04f);
+            compassModel.Draw(Matrix.TS(pos + dir * (terrain.ClipRadius + 0.01f) + Vec3.Up*0.02f, 0.4f));
+            Pose uiPose = new Pose(menuAt, Quat.LookDir(lookat));
+            UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(30,0) * Units.cm2m, false);
+            UI.Button("Kauai", new Vec2(4,2)*Units.cm2m); UI.SameLine();
+            UI.Button("Grand Canyon", new Vec2(4, 2) * Units.cm2m); UI.SameLine();
+            UI.Button("New York", new Vec2(4, 2) * Units.cm2m);
+            UI.HSlider("Scale", ref worldScale, 0.00001f, 0.00002f, 0, 30*Units.cm2m);
+            UI.WindowEnd();
         }));
 
         StereoKitApp.Shutdown();
