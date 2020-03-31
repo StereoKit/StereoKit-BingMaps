@@ -13,8 +13,19 @@ static class Geo
 
     ///////////////////////////////////////////
     
-    public static double DistLongitude(double a, double b, double latitude)
-        => ((a - b) * EarthCircumference * Math.Cos(latitude * (Math.PI / 180.0))) / 360.0;
+    public static double DistLongitude(double a, double b, double latitudeY)
+        => ((a - b) * EarthCircumference * Math.Cos(latitudeY * (Math.PI / 180.0))) / 360.0;
+
+    ///////////////////////////////////////////
+    
+    public static BoundingBox LatLonBounds(double latitudeY, double longitudeX, double radiusM)
+    {
+        double radiusY = (radiusM * 360) / EarthCircumference;
+        double radiusX = (radiusM * 360) / (EarthCircumference * Math.Cos(latitudeY * (Math.PI / 180.0)));
+
+        // In order of S W N E
+        return new BoundingBox(new double[]{ latitudeY-radiusY, longitudeX-radiusX, latitudeY+radiusY, longitudeX+radiusX });
+    }
 
     ///////////////////////////////////////////
 

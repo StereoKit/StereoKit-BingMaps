@@ -17,11 +17,11 @@ class Program
     // </appSettings>
     static private string _ApiKey = ConfigurationManager.AppSettings.Get("BingMapsKey");
 
-    static BoundingBox[] locationQueries = new BoundingBox[] { // SWNE
-        new BoundingBox(new double[] { 21.8, -159.9, 22.3, -159.1 }), // LatLon of Kauai
-        new BoundingBox(new double[] { 36.0, -112.8, 36.4, -112.3 }), // LatLon of Grand Canyon
-        new BoundingBox(new double[] { 27.5,   86.6, 28.1,   87.3 }), // LatLon of Everest
-        new BoundingBox(new double[] {-13.5,  -72.9,-12.9,  -72.2 }), // LatLon of Machu Picchu
+    static BoundingBox[] locationQueries = new BoundingBox[] {
+        Geo.LatLonBounds( 22,    -159.5, 20000), // LatLon of Kauai
+        Geo.LatLonBounds( 36.3, -112.75, 10000), // LatLon of Grand Canyon
+        Geo.LatLonBounds( 27.98,  86.92, 10000), // LatLon of Everest
+        Geo.LatLonBounds(-13.16, -72.54, 10000), // LatLon of Machu Picchu
     };
 
     static Tex         mapHeight = null;
