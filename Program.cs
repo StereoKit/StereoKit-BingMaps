@@ -17,14 +17,28 @@ class Program
     // </appSettings>
     static private string _ApiKey = ConfigurationManager.AppSettings.Get("BingMapsKey");
 
+    static BoundingBox[] locationQueries = new BoundingBox[] { // SWNE
+        new BoundingBox(new double[] { 21.8, -159.9, 22.3, -159.1 }), // LatLon of Kauai
+        new BoundingBox(new double[] { 36.0, -112.8, 36.4, -112.3 }), // LatLon of Grand Canyon
+        new BoundingBox(new double[] { 27.5,   86.6, 28.1,   87.3 }), // LatLon of Everest
+        new BoundingBox(new double[] {-13.5,  -72.9,-12.9,  -72.2 }), // LatLon of Machu Picchu
+    };
+
     static Tex         mapHeight = null;
+    static Vec2        mapHeightCenter;
+    static Vec3        mapHeightSize;
+
     static Tex         mapColor  = null;
+    static Vec2        mapColorCenter;
+    static Vec3        mapColorSize;
+
     static Terrain     terrain;
-    static BoundingBox queryBounds = new BoundingBox(new double[] { 21.8, -159.9, 22.3, -159.1 }); // LatLon of Kauai
-    static float       worldScale = 0.00001f;
-    static Pose        terrainPose = new Pose(0, 0, -0.5f, Quat.Identity);
+    static float       worldScale   = 0.00002f;
+    static float       uiWorldScale = 0.00002f;
+    static Pose        terrainPose  = new Pose(0, 0, -0.5f, Quat.Identity);
+    static int         locationId   = -1;
     
-    static Mesh cylinderMesh;
+    static Mesh  cylinderMesh;
     static Model compassModel;
 
     static Vec3 justStart;
@@ -45,10 +59,10 @@ class Program
         cylinderMesh = Mesh.GenerateCylinder(1,1,Vec3.Up, 64);
         compassModel = Model.FromFile("Compass.glb");
 
-        terrain = new Terrain(32, 1, 7);
+        terrain = new Terrain(128, 1, 3);
         terrain.ClipRadius = 0.3f;
-        RequestColor();
-        RequestHeight();
+        
+        LoadLocation(0);
 
         while (StereoKitApp.Step(() =>
         {   
@@ -56,7 +70,6 @@ class Program
             terrainPose.orientation = Quat.Identity;
             UI.AffordanceEnd();
 
-            
             Hand hand = Input.Hand(Handed.Right);
             if (hand.IsJustPinched) 
             {
@@ -71,8 +84,6 @@ class Program
                 terrain.ClipCenter = -newPos;
                 
             }
-            terrain.Material.Wireframe = Input.Hand(Handed.Right).IsGripped;
-
             terrain.Update();
             cylinderMesh.Draw(Default.Material, Matrix.TS(Vec3.Up*-0.04f, new Vec3(terrain.ClipRadius*2, 0.05f, terrain.ClipRadius*2)), Color.White*0.25f);
 
@@ -90,11 +101,30 @@ class Program
             Vec3 menuAt = pos + dir * (terrain.ClipRadius + 0.04f);
             compassModel.Draw(Matrix.TS(pos + dir * (terrain.ClipRadius + 0.01f) + Vec3.Up*0.02f, 0.4f));
             Pose uiPose = new Pose(menuAt, Quat.LookDir(lookat));
+
             UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(30,0) * Units.cm2m, false);
-            UI.Button("Kauai", new Vec2(4,2)*Units.cm2m); UI.SameLine();
-            UI.Button("Grand Canyon", new Vec2(4, 2) * Units.cm2m); UI.SameLine();
-            UI.Button("New York", new Vec2(4, 2) * Units.cm2m);
-            UI.HSlider("Scale", ref worldScale, 0.00001f, 0.00002f, 0, 30*Units.cm2m);
+
+            // Show location buttons
+            Vec2 btnSize = new Vec2(6, 3) * Units.cm2m;
+            if (UI.Radio("Kauai", locationId == 0, btnSize))
+                LoadLocation(0);
+
+            UI.SameLine();
+            if (UI.Radio("Grand Canyon", locationId == 1, btnSize))
+                LoadLocation(1);
+
+            UI.SameLine();
+            if (UI.Radio("Mt. Everest", locationId == 2, btnSize))
+                LoadLocation(2);
+
+            UI.SameLine();
+            if (UI.Radio("Machu Picchu", locationId == 3, btnSize))
+                LoadLocation(3);
+
+            // Scale slider to zoom in and out
+            if (UI.HSlider("Scale", ref uiWorldScale, 0.00002f, 0.00004f, 0, 27*Units.cm2m))
+                SetScale(uiWorldScale);
+
             UI.WindowEnd();
         }));
 
@@ -102,11 +132,47 @@ class Program
     }
 
     ///////////////////////////////////////////
+    
+    static void SetScale(float newScale)
+    {
+        // Set the terrain dimensions with the new scale
+        terrain.SetHeightDimensions(mapHeightSize  *newScale, mapHeightCenter*newScale);
+        terrain.SetColorDimensions (mapColorSize.XZ*newScale, mapColorCenter *newScale);
 
-    static async Task RequestColor()
+        // Bring out translation into geographical space, and then scale it
+        // back down into the new scale
+        Vec3 geoTranslation = terrain.Translation / worldScale;
+        terrain.Translation = geoTranslation * newScale;
+        terrain.ClipCenter = -terrain.Translation;
+
+        worldScale = newScale;
+    }
+
+    ///////////////////////////////////////////
+    
+    static void LoadLocation(int id)
+    {
+        if (locationId == id)
+            return;
+        locationId = id;
+
+        mapColor  = null;
+        mapHeight = null;
+        terrain.SetColorData (Default.Tex,      Vec2.Zero, Vec2.Zero);
+        terrain.SetHeightData(Default.TexBlack, Vec3.Zero, Vec2.Zero);
+        terrain.Translation = Vec3.Zero;
+        terrain.ClipCenter  = Vec3.Zero;
+
+        RequestColor (locationQueries[id]);
+        RequestHeight(locationQueries[id]);
+    }
+
+    ///////////////////////////////////////////
+
+    static async Task RequestColor(BoundingBox regionBounds)
     {
         var request = new ImageryRequest() {
-            MapArea     = queryBounds,
+            MapArea     = regionBounds,
             MapWidth    = 1024,
             MapHeight   = 1024,
             ImagerySet  = ImageryType.Aerial,
@@ -118,6 +184,12 @@ class Program
         Response meta  = await metaTask;
         Stream   color = await colorTask;
 
+        if (meta.StatusCode != 200)
+        {
+            Log.Warn("Bing Maps API error:\n" + string.Join('\n', meta.ErrorDetails));
+            return;
+        }
+
         MemoryStream stream = null;
         if (color is MemoryStream) stream = color as MemoryStream;
         else color.CopyTo(stream);
@@ -126,8 +198,8 @@ class Program
         mapColor.AddressMode = TexAddress.Clamp;
 
         BoundingBox bounds = new BoundingBox(meta.ResourceSets[0].Resources[0].BoundingBox);
-        Geo.BoundsToWorld(queryBounds, bounds, worldScale, out Vec3 size, out Vec2 offset);
-        terrain.SetColorData(mapColor,size.XZ, offset);
+        Geo.BoundsToWorld(regionBounds, bounds, out mapColorSize, out mapColorCenter);
+        terrain.SetColorData(mapColor, mapColorSize.XZ*worldScale, mapColorCenter * worldScale);
 
         if (mapColor == null)
             Log.Warn(Encoding.ASCII.GetString(stream.ToArray()));
@@ -135,15 +207,21 @@ class Program
 
     ///////////////////////////////////////////
 
-    static async Task RequestHeight()
+    static async Task RequestHeight(BoundingBox regionBounds)
     {
         var request = new ElevationRequest() {
-            Bounds = queryBounds,
-            Row  = 32,
-            Col  = 32,
+            Bounds      = regionBounds,
+            Row         = 32,
+            Col         = 32,
             BingMapsKey = _ApiKey
         };
         Response response = await request.Execute();
+
+        if (response.StatusCode != 200)
+        {
+            Log.Warn("Bing Maps API error:\n" + string.Join('\n', response.ErrorDetails));
+            return;
+        }
 
         ElevationData data = response.ResourceSets[0].Resources[0] as ElevationData;
         Color[] heights = new Color[32 * 32];
@@ -157,9 +235,8 @@ class Program
         mapHeight.SetColors(32, 32, heights);
         mapHeight.AddressMode = TexAddress.Clamp;
 
-        BoundingBox bounds = queryBounds;
-        Geo.BoundsToWorld(queryBounds, bounds, worldScale, out Vec3 size, out Vec2 offset);
-        terrain.SetHeightData(mapHeight, size, offset);
+        Geo.BoundsToWorld(regionBounds, regionBounds, out mapHeightSize, out mapHeightCenter);
+        terrain.SetHeightData(mapHeight, mapHeightSize * worldScale, mapHeightCenter * worldScale);
     }
 
     ///////////////////////////////////////////

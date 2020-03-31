@@ -27,7 +27,7 @@ static class Geo
 
     ///////////////////////////////////////////
     
-    public static void BoundsToWorld(BoundingBox queryBox, BoundingBox givenBox, float scale, out Vec3 size, out Vec2 offset)
+    public static void BoundsToWorld(BoundingBox queryBox, BoundingBox givenBox, out Vec3 size, out Vec2 offset)
     {
         Vec2 queryCenter = new Vec2(
             (float)(queryBox.WestLongitude + queryBox.EastLongitude) / 2.0f,
@@ -37,9 +37,9 @@ static class Geo
             (float)(givenBox.NorthLatitude + givenBox.SouthLatitude) / 2.0f);
         offset = new Vec2(
             (float)DistLongitude(givenCenter.x, queryCenter.x, queryCenter.y),
-            (float)DistLatitude (givenCenter.y, queryCenter.y)) * scale;
+            (float)DistLatitude (givenCenter.y, queryCenter.y));
         size = Vec3.Zero;
-        size.XZ = BoundsSize(givenBox) * scale;
-        size.y  = 9000 * scale * 4;
+        size.XZ = BoundsSize(givenBox);
+        size.y  = 9000;
     }
 }

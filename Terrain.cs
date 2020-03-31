@@ -84,9 +84,16 @@ class Terrain
 
     public void SetHeightData(Tex heightData, Vec3 heightDimensions, Vec2 heightCenter)
     {
+        SetHeightDimensions(heightDimensions, heightCenter);
+        terrainMaterial["world"] = heightData;
+    }
+
+    ///////////////////////////////////////////
+
+    public void SetHeightDimensions(Vec3 heightDimensions, Vec2 heightCenter)
+    {
         heightSize.XY = heightCenter - heightDimensions.XZ / 2;
         heightSize.ZW = heightDimensions.XZ;
-        terrainMaterial["world"       ] = heightData;
         terrainMaterial["world_size"  ] = heightSize;
         terrainMaterial["world_height"] = heightDimensions.y;
     }
@@ -95,10 +102,17 @@ class Terrain
 
     public void SetColorData(Tex colorData, Vec2 colorDimensions, Vec2 colorCenter)
     {
+        SetColorDimensions(colorDimensions, colorCenter);
+        terrainMaterial["world_color"] = colorData;
+    }
+
+    ///////////////////////////////////////////
+
+    public void SetColorDimensions(Vec2 colorDimensions, Vec2 colorCenter)
+    {
         colorSize.XY = colorCenter - colorDimensions / 2;
         colorSize.ZW = colorDimensions;
-        terrainMaterial["world_color"] = colorData;
-        terrainMaterial["color_size" ] = colorSize;
+        terrainMaterial["color_size"] = colorSize;
     }
 
     ///////////////////////////////////////////
