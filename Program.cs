@@ -5,13 +5,13 @@ using StereoKit;
 
 class Program
 {
-    // ConfigurationManager is in NuGet System.Configuration.ConfigurationManager
-    // You can get a key, here: https://www.bingmapsportal.com/Application
-    // Then add a [Project->Add New Item->Application Configuration File] and 
-    // add this XML to the file:
-    // <appSettings>
-    //   <add key="BingMapsKey" value="[Your API key here!]"/>
-    // </appSettings>
+    // ConfigurationManager is in the NuGet package: 
+    // System.Configuration.ConfigurationManager
+
+    // You can get a Bing Maps API key here:
+    // https://www.bingmapsportal.com/Application
+    // Then in App.config, you can replace "[Your API key here]" with your 
+    // own key!
     static private string ApiKey = ConfigurationManager.AppSettings.Get("BingMapsKey");
 
     static BoundingBox[] locationQueries = new BoundingBox[] {
