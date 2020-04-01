@@ -1,8 +1,5 @@
 using System;
 using System.Configuration;
-using System.IO;
-using System.Text;
-using System.Threading.Tasks;
 using BingMapsRESTToolkit;
 using StereoKit;
 
@@ -15,7 +12,7 @@ class Program
     // <appSettings>
     //   <add key="BingMapsKey" value="[Your API key here!]"/>
     // </appSettings>
-    static private string _ApiKey = ConfigurationManager.AppSettings.Get("BingMapsKey");
+    static private string ApiKey = ConfigurationManager.AppSettings.Get("BingMapsKey");
 
     static BoundingBox[] locationQueries = new BoundingBox[] {
         Geo.LatLonBounds( 22,    -159.5, 20000), // LatLon of Kauai
@@ -24,17 +21,15 @@ class Program
         Geo.LatLonBounds(-13.16, -72.54, 10000), // LatLon of Machu Picchu
     };
 
-    static Tex         mapHeight = null;
     static Vec2        mapHeightCenter;
     static Vec3        mapHeightSize;
 
-    static Tex         mapColor  = null;
     static Vec2        mapColorCenter;
     static Vec3        mapColorSize;
 
     static Terrain     terrain;
-    static float       worldScale   = 0.00002f;
-    static float       uiWorldScale = 0.00002f;
+    static float       worldScale   = 0.00004f;
+    static float       uiWorldScale = 0.00004f;
     static Pose        terrainPose  = new Pose(0, 0, -0.5f, Quat.Identity);
     static int         locationId   = -1;
     
@@ -49,7 +44,7 @@ class Program
     static void Main(string[] args)
     {
         StereoKitApp.settings.assetsFolder = "Assets";
-        if (!StereoKitApp.Initialize("StereoKit_BingMaps", Runtime.MixedReality))
+        if (!StereoKitApp.Initialize("StereoKit_BingMaps", Runtime.Flatscreen))
             Environment.Exit(1);
 
         Model cube = Model.FromMesh(
@@ -122,7 +117,7 @@ class Program
                 LoadLocation(3);
 
             // Scale slider to zoom in and out
-            if (UI.HSlider("Scale", ref uiWorldScale, 0.00002f, 0.00004f, 0, 27*Units.cm2m))
+            if (UI.HSlider("Scale", ref uiWorldScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m))
                 SetScale(uiWorldScale);
 
             UI.WindowEnd();
@@ -156,88 +151,21 @@ class Program
             return;
         locationId = id;
 
-        mapColor  = null;
-        mapHeight = null;
         terrain.SetColorData (Default.Tex,      Vec2.Zero, Vec2.Zero);
         terrain.SetHeightData(Default.TexBlack, Vec3.Zero, Vec2.Zero);
         terrain.Translation = Vec3.Zero;
         terrain.ClipCenter  = Vec3.Zero;
 
-        RequestColor (locationQueries[id]);
-        RequestHeight(locationQueries[id]);
+        BingMaps.RequestColor(ApiKey, ImageryType.Aerial, locationQueries[id], (tex, size, center) => {
+            mapColorSize   = size;
+            mapColorCenter = center;
+            terrain.SetColorData(tex, size.XZ*worldScale, center*worldScale);
+        }).ConfigureAwait(false);
+
+        BingMaps.RequestHeight(ApiKey, locationQueries[id], (tex, size, center) => {
+            mapHeightSize   = size;
+            mapHeightCenter = center;
+            terrain.SetHeightData(tex, size*worldScale, center*worldScale);
+        }).ConfigureAwait(false);
     }
-
-    ///////////////////////////////////////////
-
-    static async Task RequestColor(BoundingBox regionBounds)
-    {
-        var request = new ImageryRequest() {
-            MapArea     = regionBounds,
-            MapWidth    = 1024,
-            MapHeight   = 1024,
-            ImagerySet  = ImageryType.Aerial,
-            BingMapsKey = _ApiKey
-        };
-        Task<Response> metaTask  = ServiceManager.GetResponseAsync(request);
-        Task<Stream>   colorTask = ServiceManager.GetImageAsync   (request);
-        await Task.WhenAll(metaTask, colorTask);
-        Response meta  = await metaTask;
-        Stream   color = await colorTask;
-
-        if (meta.StatusCode != 200)
-        {
-            Log.Warn("Bing Maps API error:\n" + string.Join('\n', meta.ErrorDetails));
-            return;
-        }
-
-        MemoryStream stream = null;
-        if (color is MemoryStream) stream = color as MemoryStream;
-        else color.CopyTo(stream);
-
-        mapColor = Tex.FromMemory(stream.ToArray());
-        mapColor.AddressMode = TexAddress.Clamp;
-
-        BoundingBox bounds = new BoundingBox(meta.ResourceSets[0].Resources[0].BoundingBox);
-        Geo.BoundsToWorld(regionBounds, bounds, out mapColorSize, out mapColorCenter);
-        terrain.SetColorData(mapColor, mapColorSize.XZ*worldScale, mapColorCenter * worldScale);
-
-        if (mapColor == null)
-            Log.Warn(Encoding.ASCII.GetString(stream.ToArray()));
-    }
-
-    ///////////////////////////////////////////
-
-    static async Task RequestHeight(BoundingBox regionBounds)
-    {
-        var request = new ElevationRequest() {
-            Bounds      = regionBounds,
-            Row         = 32,
-            Col         = 32,
-            BingMapsKey = _ApiKey
-        };
-        Response response = await request.Execute();
-
-        if (response.StatusCode != 200)
-        {
-            Log.Warn("Bing Maps API error:\n" + string.Join('\n', response.ErrorDetails));
-            return;
-        }
-
-        ElevationData data = response.ResourceSets[0].Resources[0] as ElevationData;
-        Color[] heights = new Color[32 * 32];
-        for (int y = 0; y < 32; y++) {
-        for (int x = 0; x < 32; x++) {
-            // Mount everest is 8,848m tall
-            heights[x + (31 - y) * 32] = Color.White * (data.Elevations[x + y * 32] / 9000.0f);
-        }
-        }
-        mapHeight = new Tex(TexType.ImageNomips, TexFormat.Rgba128);
-        mapHeight.SetColors(32, 32, heights);
-        mapHeight.AddressMode = TexAddress.Clamp;
-
-        Geo.BoundsToWorld(regionBounds, regionBounds, out mapHeightSize, out mapHeightCenter);
-        terrain.SetHeightData(mapHeight, mapHeightSize * worldScale, mapHeightCenter * worldScale);
-    }
-
-    ///////////////////////////////////////////
 }

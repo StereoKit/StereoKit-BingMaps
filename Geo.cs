@@ -4,27 +4,32 @@ using System;
 
 static class Geo
 {
-    const double EarthCircumference = 40075040.0;
+    public const double EarthCircumference = 40075040.0;
+    public const float  EarthTallest       = 8848.0f; // Mount everest is 8,848m tall
 
     ///////////////////////////////////////////
 
     public static double DistLatitude(double a, double b)
-        => (EarthCircumference * (a - b)) / 360.0;
+        => (EarthCircumference * (a-b)) / 360.0;
 
     ///////////////////////////////////////////
     
     public static double DistLongitude(double a, double b, double latitudeY)
-        => ((a - b) * EarthCircumference * Math.Cos(latitudeY * (Math.PI / 180.0))) / 360.0;
+        => ((a-b) * EarthCircumference * Math.Cos(latitudeY*Units.deg2rad)) / 360.0; 
 
     ///////////////////////////////////////////
     
     public static BoundingBox LatLonBounds(double latitudeY, double longitudeX, double radiusM)
     {
         double radiusY = (radiusM * 360) / EarthCircumference;
-        double radiusX = (radiusM * 360) / (EarthCircumference * Math.Cos(latitudeY * (Math.PI / 180.0)));
+        double radiusX = (radiusM * 360) / (EarthCircumference * Math.Cos(latitudeY * Units.deg2rad));
 
-        // In order of S W N E
-        return new BoundingBox(new double[]{ latitudeY-radiusY, longitudeX-radiusX, latitudeY+radiusY, longitudeX+radiusX });
+        // In order of South, West, North, East
+        return new BoundingBox(new double[]{ 
+            latitudeY -radiusY, 
+            longitudeX-radiusX, 
+            latitudeY +radiusY, 
+            longitudeX+radiusX });
     }
 
     ///////////////////////////////////////////
@@ -33,7 +38,7 @@ static class Geo
     {
         return new Vec2(
             (float)DistLongitude(bounds.EastLongitude, bounds.WestLongitude, (bounds.NorthLatitude + bounds.SouthLatitude) / 2),
-            (float)DistLatitude(bounds.NorthLatitude, bounds.SouthLatitude));
+            (float)DistLatitude (bounds.NorthLatitude, bounds.SouthLatitude));
     }
 
     ///////////////////////////////////////////
@@ -51,6 +56,6 @@ static class Geo
             (float)DistLatitude (givenCenter.y, queryCenter.y));
         size = Vec3.Zero;
         size.XZ = BoundsSize(givenBox);
-        size.y  = 9000;
+        size.y  = EarthTallest;
     }
 }
