@@ -20,6 +20,7 @@ class Program
         Geo.LatLonBounds( 27.98,  86.92, 10000), // LatLon of Everest
         Geo.LatLonBounds(-13.16, -72.54, 10000), // LatLon of Machu Picchu
     };
+    static int locationId = -1;
 
     static Vec2        mapHeightCenter;
     static Vec3        mapHeightSize;
@@ -28,69 +29,69 @@ class Program
     static Vec3        mapColorSize;
 
     static Terrain     terrain;
-    static float       worldScale   = 0.00004f;
-    static float       uiWorldScale = 0.00004f;
-    static Pose        terrainPose  = new Pose(0, 0, -0.5f, Quat.Identity);
-    static int         locationId   = -1;
+    static float       terrainScale   = 0.00004f;
+    static float       uiTerrainScale = 0.00004f;
+    static Vec3        terrainDrag;
+    static Pose        terrainPose    = new Pose(0, 0, -0.5f, Quat.Identity);
     
-    static Mesh  cylinderMesh;
+    static Mesh  pedestalMesh;
     static Model compassModel;
+    static Model widgetModel;
 
     static Vec3 justStart;
     static Vec3 justFinger;
+    static bool dragActive;
 
     ///////////////////////////////////////////
 
     static void Main(string[] args)
     {
+        // Initialize the StereoKit application
         StereoKitApp.settings.assetsFolder = "Assets";
-        if (!StereoKitApp.Initialize("StereoKit_BingMaps", Runtime.Flatscreen))
+        if (!StereoKitApp.Initialize("StereoKit_BingMaps", Runtime.MixedReality))
             Environment.Exit(1);
 
-        Model cube = Model.FromMesh(
-            Mesh.GenerateRoundedCube(Vec3.One, 0.2f),
-            Default.Material);
-
-        cylinderMesh = Mesh.GenerateCylinder(1,1,Vec3.Up, 64);
-        compassModel = Model.FromFile("Compass.glb");
-
-        terrain = new Terrain(128, 1, 3);
-        terrain.ClipRadius = 0.3f;
+        Initialize();
         
-        LoadLocation(0);
-
         while (StereoKitApp.Step(() =>
         {   
-            UI.AffordanceBegin("Terrain", ref terrainPose, new Bounds(new Vec3(terrain.ClipRadius*2, 0.1f, terrain.ClipRadius*2)));
-            terrainPose.orientation = Quat.Identity;
+            Vec3 pedestalOffset = Vec3.Up * -0.04f;
+            Vec3 pedestalScale  = new Vec3(terrain.ClipRadius*2, 0.05f, terrain.ClipRadius*2); 
+            UI.AffordanceBegin("Terrain", ref terrainPose, new Bounds(pedestalOffset, pedestalScale), false, UIMove.PosOnly);
             UI.AffordanceEnd();
+            pedestalMesh.Draw(Default.MaterialUI, Matrix.TS(terrainPose.position + pedestalOffset, pedestalScale), Color.White * 0.25f);
 
             Hand hand = Input.Hand(Handed.Right);
-            if (hand.IsJustPinched) 
-            {
-                justStart  = terrain.Translation;
-                justFinger = hand[FingerId.Index, JointId.Tip].position;
+            Vec3 widgetPos = 
+                hand[FingerId.Index, JointId.Tip].position * 0.5f + 
+                hand[FingerId.Thumb, JointId.Tip].position * 0.5f;
+            if (dragActive || Vec2.DistanceSq(widgetPos.XZ, terrainPose.position.XZ) < terrain.ClipRadius*terrain.ClipRadius && widgetPos.y > terrainPose.position.y) { 
+                widgetModel.Draw(Matrix.TS(widgetPos, dragActive?1.5f:1), Color.White * (dragActive ?1.5f:1f));
+                if (!UI.IsInteracting(Handed.Right) && hand.IsJustPinched) 
+                {
+                    justStart  = terrainDrag;
+                    justFinger = hand[FingerId.Thumb, JointId.Tip].position;
+                    dragActive = true;
+                }
+                if (dragActive && hand.IsPinched)
+                {
+                    Vec3 newPos = justStart + (hand[FingerId.Thumb, JointId.Tip].position - justFinger);
+                    newPos.y = 0;
+                    terrainDrag = newPos;
+                }
+                if (hand.IsJustUnpinched)
+                    dragActive = false;
             }
-            if (hand.IsPinched)
-            {
-                Vec3 newPos = justStart + (hand[FingerId.Index, JointId.Tip].position - justFinger);
-                newPos.y = 0;
-                terrain.Translation = newPos;
-                terrain.ClipCenter = -newPos;
-                
-            }
+
+            terrain.Translation = terrainPose.position + terrainDrag;
+            terrain.ClipCenter = -terrainDrag;
             terrain.Update();
-            cylinderMesh.Draw(Default.Material, Matrix.TS(Vec3.Up*-0.04f, new Vec3(terrain.ClipRadius*2, 0.05f, terrain.ClipRadius*2)), Color.White*0.25f);
 
+            Hierarchy.Push(terrainPose.ToMatrix());
             Vec3 pos = Vec3.Zero;
-            Vec3 dir = (Input.Head.position - pos);
-            dir.y = 0;
-            dir.Normalize();
+            Vec3 dir = (Input.Head.position.XZ - terrainPose.position.XZ).Normalized().X0Y;
 
-            float angle = MathF.Atan2(dir.z, dir.x) * Units.rad2deg;
-            if (angle < 0) angle = 360+angle;
-
-            angle = (int)(angle / 60) * 60 + 30;
+            float angle = (int)(dir.XZ.Angle() / 60) * 60 + 30;
             dir = Vec3.AngleXZ(angle);
             Vec3 lookat = dir + Vec3.Up;
             Vec3 menuAt = pos + dir * (terrain.ClipRadius + 0.04f);
@@ -117,13 +118,28 @@ class Program
                 LoadLocation(3);
 
             // Scale slider to zoom in and out
-            if (UI.HSlider("Scale", ref uiWorldScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m))
-                SetScale(uiWorldScale);
+            if (UI.HSlider("Scale", ref uiTerrainScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m))
+                SetScale(uiTerrainScale);
 
             UI.WindowEnd();
+            Hierarchy.Pop();
         }));
 
         StereoKitApp.Shutdown();
+    }
+
+    ///////////////////////////////////////////
+    
+    static void Initialize()
+    {
+        pedestalMesh = Mesh.GenerateCylinder(1,1,Vec3.Up, 64);
+        compassModel = Model.FromFile("Compass.glb");
+        widgetModel  = Model.FromFile("MoveWidget.glb");
+
+        terrain = new Terrain(128, 1, 3);
+        terrain.ClipRadius = 0.3f;
+        
+        LoadLocation(0);
     }
 
     ///////////////////////////////////////////
@@ -136,11 +152,12 @@ class Program
 
         // Bring out translation into geographical space, and then scale it
         // back down into the new scale
-        Vec3 geoTranslation = terrain.Translation / worldScale;
-        terrain.Translation = geoTranslation * newScale;
-        terrain.ClipCenter = -terrain.Translation;
+        Vec3 geoTranslation = terrainDrag / terrainScale;
+        terrainDrag = geoTranslation * newScale;
+        terrain.Translation = terrainPose.position + terrainDrag;
+        terrain.ClipCenter = -terrainDrag;
 
-        worldScale = newScale;
+        terrainScale = newScale;
     }
 
     ///////////////////////////////////////////
@@ -159,13 +176,13 @@ class Program
         BingMaps.RequestColor(ApiKey, ImageryType.Aerial, locationQueries[id], (tex, size, center) => {
             mapColorSize   = size;
             mapColorCenter = center;
-            terrain.SetColorData(tex, size.XZ*worldScale, center*worldScale);
+            terrain.SetColorData(tex, size.XZ*terrainScale, center*terrainScale);
         }).ConfigureAwait(false);
 
         BingMaps.RequestHeight(ApiKey, locationQueries[id], (tex, size, center) => {
             mapHeightSize   = size;
             mapHeightCenter = center;
-            terrain.SetHeightData(tex, size*worldScale, center*worldScale);
+            terrain.SetHeightData(tex, size*terrainScale, center*terrainScale);
         }).ConfigureAwait(false);
     }
 }
