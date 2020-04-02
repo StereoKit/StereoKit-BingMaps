@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="BingMapsRESTToolkit" Version="1.1.4" />
-    <PackageReference Include="StereoKit" Version="0.1.10-preview3" />
+    <PackageReference Include="StereoKit" Version="0.1.10-preview4" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="4.7.0" />
   </ItemGroup>
 
@@ -17,6 +17,9 @@
     </None>
     <None Update="Assets\MoveWidget.glb">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Assets\Pedestal.glb">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Assets\terrain.hlsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

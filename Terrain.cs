@@ -173,7 +173,7 @@ class Terrain
 
     public void Update()
     {
-        Vec3 offset = Input.Head.position - chunkCenter;
+        Vec3 offset = clipCenter - chunkCenter;
         bool update = false;
         if      (offset.x > chunkSize*0.4f ) { chunkCenter.x += chunkSize*0.5f; update = true; }
         else if (offset.x < chunkSize*-0.4f) { chunkCenter.x -= chunkSize*0.5f; update = true; }

@@ -34,7 +34,7 @@ class Program
     static Vec3        terrainDrag;
     static Pose        terrainPose    = new Pose(0, 0, -0.5f, Quat.Identity);
     
-    static Mesh  pedestalMesh;
+    static Model pedestalModel;
     static Model compassModel;
     static Model widgetModel;
 
@@ -55,11 +55,10 @@ class Program
         
         while (StereoKitApp.Step(() =>
         {   
-            Vec3 pedestalOffset = Vec3.Up * -0.04f;
-            Vec3 pedestalScale  = new Vec3(terrain.ClipRadius*2, 0.05f, terrain.ClipRadius*2); 
-            UI.AffordanceBegin("Terrain", ref terrainPose, new Bounds(pedestalOffset, pedestalScale), false, UIMove.PosOnly);
+            float pedestalScale  = terrain.ClipRadius*2;
+            UI.AffordanceBegin("Terrain", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
             UI.AffordanceEnd();
-            pedestalMesh.Draw(Default.MaterialUI, Matrix.TS(terrainPose.position + pedestalOffset, pedestalScale), Color.White * 0.25f);
+            pedestalModel.Draw(Matrix.TS(terrainPose.position, pedestalScale), Color.White * 0.25f);
 
             Hand hand = Input.Hand(Handed.Right);
             Vec3 widgetPos = 
@@ -132,9 +131,9 @@ class Program
     
     static void Initialize()
     {
-        pedestalMesh = Mesh.GenerateCylinder(1,1,Vec3.Up, 64);
-        compassModel = Model.FromFile("Compass.glb");
-        widgetModel  = Model.FromFile("MoveWidget.glb");
+        pedestalModel = Model.FromFile("Pedestal.glb", Default.ShaderUI);
+        compassModel  = Model.FromFile("Compass.glb");
+        widgetModel   = Model.FromFile("MoveWidget.glb");
 
         terrain = new Terrain(128, 1, 3);
         terrain.ClipRadius = 0.3f;
@@ -170,8 +169,9 @@ class Program
 
         terrain.SetColorData (Default.Tex,      Vec2.Zero, Vec2.Zero);
         terrain.SetHeightData(Default.TexBlack, Vec3.Zero, Vec2.Zero);
-        terrain.Translation = Vec3.Zero;
+        terrain.Translation = terrainPose.position;
         terrain.ClipCenter  = Vec3.Zero;
+        terrainDrag = Vec3.Zero;
 
         BingMaps.RequestColor(ApiKey, ImageryType.Aerial, locationQueries[id], (tex, size, center) => {
             mapColorSize   = size;
