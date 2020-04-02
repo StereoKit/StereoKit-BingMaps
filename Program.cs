@@ -42,6 +42,9 @@ class Program
     static Vec3 justFinger;
     static bool dragActive;
 
+    static Mesh     floorMesh;
+    static Material floorMaterial;
+
     ///////////////////////////////////////////
 
     static void Main(string[] args)
@@ -55,6 +58,8 @@ class Program
         
         while (StereoKitApp.Step(() =>
         {   
+            floorMesh.Draw(floorMaterial, Matrix.T(0,-1.5f,0));
+
             float pedestalScale  = terrain.ClipRadius*2;
             UI.AffordanceBegin("Terrain", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
             UI.AffordanceEnd();
@@ -134,6 +139,11 @@ class Program
         pedestalModel = Model.FromFile("Pedestal.glb", Default.ShaderUI);
         compassModel  = Model.FromFile("Compass.glb");
         widgetModel   = Model.FromFile("MoveWidget.glb");
+
+        floorMesh = Mesh.GeneratePlane(new Vec2(10, 10));
+        floorMaterial = Default.Material.Copy();
+        floorMaterial[MatParamName.DiffuseTex] = Tex.FromFile("floor.png");
+        floorMaterial[MatParamName.TexScale] = 8;
 
         terrain = new Terrain(128, 1, 3);
         terrain.ClipRadius = 0.3f;
