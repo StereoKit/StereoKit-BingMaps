@@ -48,7 +48,7 @@ static class BingMaps
 
         // Send the image over to StereoKit, and turn it into a texture!
         Tex texture = Tex.FromMemory(memStream.ToArray());
-        texture.AddressMode = TexAddress.Clamp;
+        texture.AddressMode = TexAddress.Mirror;
 
         // Convert the image's bounds from lat/lon information into our 
         // world's meters.

@@ -27,6 +27,7 @@ class Program
     static float       uiTerrainScale = 0.00004f;
     static Vec3        terrainDrag;
     static Pose        terrainPose    = new Pose(0, 0, -0.5f, Quat.Identity);
+    static float       uiAngle        = 0;
     
     static Model pedestalModel;
     static Model compassModel;
@@ -37,7 +38,7 @@ class Program
     static bool dragActive;
 
     static Mesh     floorMesh;
-    static Material floorMaterial;
+    static Material floorMat;
 
     ///////////////////////////////////////////
 
@@ -51,14 +52,12 @@ class Program
         Initialize();
         
         while (StereoKitApp.Step(() =>
-        {   
-            if (StereoKitApp.System.displayType == Display.Opaque)
-                floorMesh.Draw(floorMaterial, Matrix.T(0,-1.5f,0));
+        {
+            floorMesh?.Draw(floorMat, Matrix.T(0,-1.5f,0));
 
             float pedestalScale  = terrain.ClipRadius*2;
-            UI.AffordanceBegin("Terrain", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
-            UI.AffordanceEnd();
-            pedestalModel.Draw(Matrix.TS(terrainPose.position, pedestalScale), Color.White * 0.25f);
+            UI.Affordance("Terrain", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
+            pedestalModel.Draw(Matrix.TS(terrainPose.position, pedestalScale));
 
             Hand hand = Input.Hand(Handed.Right);
             Vec3 widgetPos = 
@@ -90,8 +89,11 @@ class Program
             Vec3 pos = Vec3.Zero;
             Vec3 dir = (Input.Head.position.XZ - terrainPose.position.XZ).Normalized().X0Y;
 
-            float angle = (int)(dir.XZ.Angle() / 60) * 60 + 30;
-            dir = Vec3.AngleXZ(angle);
+            float angle = dir.XZ.Angle();
+            if (SKMath.AngleDist(angle, uiAngle) > 50)
+                uiAngle = (int)(angle / 60) * 60 + 30;
+
+            dir = Vec3.AngleXZ(uiAngle);
             Vec3 lookat = dir + Vec3.Up;
             Vec3 menuAt = pos + dir * (terrain.ClipRadius + 0.04f);
             compassModel.Draw(Matrix.TS(pos + dir * (terrain.ClipRadius + 0.01f) + Vec3.Up*0.02f, 0.4f));
@@ -135,13 +137,21 @@ class Program
         compassModel  = Model.FromFile("Compass.glb");
         widgetModel   = Model.FromFile("MoveWidget.glb");
 
-        floorMesh = Mesh.GeneratePlane(new Vec2(10, 10));
-        floorMaterial = Default.Material.Copy();
-        floorMaterial[MatParamName.DiffuseTex] = Tex.FromFile("floor.png");
-        floorMaterial[MatParamName.TexScale] = 8;
-
         terrain = new Terrain(128, 1, 3);
         terrain.ClipRadius = 0.3f;
+
+        // Add a floor if we're in VR, and hide the hands if we're in AR!
+        if (StereoKitApp.System.displayType == Display.Opaque) 
+        { 
+            floorMesh = Mesh.GeneratePlane(new Vec2(10, 10));
+            floorMat  = Default.Material.Copy();
+            floorMat[MatParamName.DiffuseTex] = Tex.FromFile("floor.png");
+            floorMat[MatParamName.TexScale  ] = 8;
+        }
+        else
+        {
+            Input.HandVisible(Handed.Max, false);
+        }
         
         LoadLocation(0);
     }
