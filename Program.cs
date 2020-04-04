@@ -55,10 +55,8 @@ class Program
         {
             floorMesh?.Draw(floorMat, Matrix.T(0,-1.5f,0));
 
-            float pedestalScale  = terrain.ClipRadius*2;
-            UI.Affordance("Terrain", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
-            pedestalModel.Draw(Matrix.TS(terrainPose.position, pedestalScale));
-
+            ShowPedestalControls();
+            
             Hand hand = Input.Hand(Handed.Right);
             Vec3 widgetPos = 
                 hand[FingerId.Index, JointId.Tip].position * 0.5f + 
@@ -84,46 +82,6 @@ class Program
             terrain.Translation = terrainPose.position + terrainDrag;
             terrain.ClipCenter = -terrainDrag;
             terrain.Update();
-
-            Hierarchy.Push(terrainPose.ToMatrix());
-            Vec3 pos = Vec3.Zero;
-            Vec3 dir = (Input.Head.position.XZ - terrainPose.position.XZ).Normalized().X0Y;
-
-            float angle = dir.XZ.Angle();
-            if (SKMath.AngleDist(angle, uiAngle) > 50)
-                uiAngle = (int)(angle / 60) * 60 + 30;
-
-            dir = Vec3.AngleXZ(uiAngle);
-            Vec3 lookat = dir + Vec3.Up;
-            Vec3 menuAt = pos + dir * (terrain.ClipRadius + 0.04f);
-            compassModel.Draw(Matrix.TS(pos + dir * (terrain.ClipRadius + 0.01f) + Vec3.Up*0.02f, 0.4f));
-            Pose uiPose = new Pose(menuAt, Quat.LookDir(lookat));
-
-            UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(30,0) * Units.cm2m, false);
-
-            // Show location buttons
-            Vec2 btnSize = new Vec2(6, 3) * Units.cm2m;
-            if (UI.Radio("Kauai", locationId == 0, btnSize))
-                LoadLocation(0);
-
-            UI.SameLine();
-            if (UI.Radio("Grand Canyon", locationId == 1, btnSize))
-                LoadLocation(1);
-
-            UI.SameLine();
-            if (UI.Radio("Mt. Everest", locationId == 2, btnSize))
-                LoadLocation(2);
-
-            UI.SameLine();
-            if (UI.Radio("Machu Picchu", locationId == 3, btnSize))
-                LoadLocation(3);
-
-            // Scale slider to zoom in and out
-            if (UI.HSlider("Scale", ref uiTerrainScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m))
-                SetScale(uiTerrainScale);
-
-            UI.WindowEnd();
-            Hierarchy.Pop();
         }));
 
         StereoKitApp.Shutdown();
@@ -154,6 +112,63 @@ class Program
         }
         
         LoadLocation(0);
+    }
+
+    ///////////////////////////////////////////
+    
+    static Vec3 CalcPedestalUIDir()
+    {
+        // Get the angle from the center of the pedestal to the user's head,
+        // flatten it on the Y axis, and normalize it for angle calculations.
+        Vec3 dir = Input.Head.position - terrainPose.position;
+        dir = dir.XZ.Normalized().X0Y;
+
+        // Use a 'sticky' algorithm for updating the angle of the UI. We snap
+        // to increments of 60 degrees, but only do it after we've traveled 
+        // 20 degrees into the next increment. This prevents the UI from
+        // moving back and forth when the user is wiggling around at the edge
+        // of a snap increment.
+        const float snapAngle    = 60;
+        const float stickyAmount = 20;
+        float angle = dir.XZ.Angle();
+        if (SKMath.AngleDist(angle, uiAngle) > snapAngle/2 + stickyAmount)
+            uiAngle = (int)(angle/snapAngle) * snapAngle + snapAngle/2;
+
+        // Turn the angle back into a direction we can use to position the
+        // pedestal
+        return Vec3.AngleXZ(uiAngle);
+    }
+
+    ///////////////////////////////////////////
+    
+    static void ShowPedestalControls()
+    {
+        float pedestalScale = terrain.ClipRadius * 2;
+        UI.AffordanceBegin("Terrain", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
+        pedestalModel.Draw(Matrix.TS(Vec3.Zero, pedestalScale));
+
+        Vec3 uiDir  = CalcPedestalUIDir();
+        Pose uiPose = new Pose(uiDir * (terrain.ClipRadius + 0.04f), Quat.LookDir(uiDir+Vec3.Up));
+        compassModel.Draw(Matrix.TS(uiDir * (terrain.ClipRadius + 0.01f) + Vec3.Up * 0.02f, 0.4f));
+        UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(30,0) * Units.cm2m, false);
+
+        // Show location buttons
+        Vec2 btnSize = new Vec2(6, 3) * Units.cm2m;
+        if (UI.Radio("Kauai",        locationId == 0, btnSize)) LoadLocation(0);
+        UI.SameLine();
+        if (UI.Radio("Grand Canyon", locationId == 1, btnSize)) LoadLocation(1);
+        UI.SameLine();
+        if (UI.Radio("Mt. Everest",  locationId == 2, btnSize)) LoadLocation(2);
+        UI.SameLine();
+        if (UI.Radio("Machu Picchu", locationId == 3, btnSize)) LoadLocation(3);
+
+        // Scale slider to zoom in and out
+        if (UI.HSlider("Scale", ref uiTerrainScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m))
+            SetScale(uiTerrainScale);
+
+        UI.WindowEnd();
+
+        UI.AffordanceEnd();
     }
 
     ///////////////////////////////////////////
