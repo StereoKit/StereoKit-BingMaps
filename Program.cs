@@ -6,7 +6,7 @@ class Program
 {
     // You can get a Bing Maps API key here:
     // https://www.bingmapsportal.com/Application
-    static private string ApiKey = "[Your API Key Here]";
+    static private string ApiKey = "AgANbJTAVjCk4Xi68UHeJPzj02dFj372ibzCJCU99hXihIz_DkAJZqFf_b4V--uN";
 
     static BoundingBox[] locationQueries = new BoundingBox[] {
         Geo.LatLonBounds( 22,    -159.5, 20000), // LatLon of Kauai
@@ -46,7 +46,7 @@ class Program
     {
         // Initialize the StereoKit application
         StereoKitApp.settings.assetsFolder = "Assets";
-        if (!StereoKitApp.Initialize("StereoKit_BingMaps", Runtime.MixedReality))
+        if (!StereoKitApp.Initialize("StereoKit_BingMaps", Runtime.Flatscreen))
             Environment.Exit(1);
 
         Initialize();
@@ -55,33 +55,9 @@ class Program
         {
             floorMesh?.Draw(floorMat, Matrix.T(0,-1.5f,0));
 
+            Hierarchy.Push(Matrix.TS(Vec3.Zero, 0.5f));
             ShowPedestalControls();
-            
-            Hand hand = Input.Hand(Handed.Right);
-            Vec3 widgetPos = 
-                hand[FingerId.Index, JointId.Tip].position * 0.5f + 
-                hand[FingerId.Thumb, JointId.Tip].position * 0.5f;
-            if (dragActive || Vec2.DistanceSq(widgetPos.XZ, terrainPose.position.XZ) < terrain.ClipRadius*terrain.ClipRadius && widgetPos.y > terrainPose.position.y) { 
-                widgetModel.Draw(Matrix.TS(widgetPos, dragActive?1.5f:1), Color.White * (dragActive ?1.5f:1f));
-                if (!UI.IsInteracting(Handed.Right) && hand.IsJustPinched) 
-                {
-                    justStart  = terrainDrag;
-                    justFinger = hand[FingerId.Thumb, JointId.Tip].position;
-                    dragActive = true;
-                }
-                if (dragActive && hand.IsPinched)
-                {
-                    Vec3 newPos = justStart + (hand[FingerId.Thumb, JointId.Tip].position - justFinger);
-                    newPos.y = 0;
-                    terrainDrag = newPos;
-                }
-                if (hand.IsJustUnpinched)
-                    dragActive = false;
-            }
-
-            terrain.Translation = terrainPose.position + terrainDrag;
-            terrain.ClipCenter = -terrainDrag;
-            terrain.Update();
+            Hierarchy.Pop();
         }));
 
         StereoKitApp.Shutdown();
@@ -96,7 +72,7 @@ class Program
         widgetModel   = Model.FromFile("MoveWidget.glb");
 
         terrain = new Terrain(128, 1, 3);
-        terrain.ClipRadius = 0.3f;
+        terrain.clipRadius = 0.3f;
 
         // Add a floor if we're in VR, and hide the hands if we're in AR!
         if (StereoKitApp.System.displayType == Display.Opaque) 
@@ -143,13 +119,13 @@ class Program
     
     static void ShowPedestalControls()
     {
-        float pedestalScale = terrain.ClipRadius * 2;
+        float pedestalScale = terrain.clipRadius * 2;
         UI.AffordanceBegin("Terrain", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
         pedestalModel.Draw(Matrix.TS(Vec3.Zero, pedestalScale));
 
         Vec3 uiDir  = CalcPedestalUIDir();
-        Pose uiPose = new Pose(uiDir * (terrain.ClipRadius + 0.04f), Quat.LookDir(uiDir+Vec3.Up));
-        compassModel.Draw(Matrix.TS(uiDir * (terrain.ClipRadius + 0.01f) + Vec3.Up * 0.02f, 0.4f));
+        Pose uiPose = new Pose(uiDir * (terrain.clipRadius + 0.04f), Quat.LookDir(uiDir+Vec3.Up));
+        compassModel.Draw(Matrix.TS(uiDir * (terrain.clipRadius + 0.01f) + Vec3.Up * 0.02f, 0.4f));
         UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(30,0) * Units.cm2m, false);
 
         // Show location buttons
@@ -168,7 +144,39 @@ class Program
 
         UI.WindowEnd();
 
+        ShowTerrain();
+
         UI.AffordanceEnd();
+    }
+
+    ///////////////////////////////////////////
+
+    static void ShowTerrain()
+    {
+        Hand hand = Input.Hand(Handed.Right);
+        Vec3 widgetPos = Hierarchy.ToLocal(
+            hand[FingerId.Index, JointId.Tip].position * 0.5f + 
+            hand[FingerId.Thumb, JointId.Tip].position * 0.5f);
+        if (dragActive || widgetPos.XZ.MagnitudeSq < terrain.clipRadius*terrain.clipRadius && widgetPos.y > 0) { 
+            widgetModel.Draw(Matrix.TS(widgetPos, dragActive?1.5f:1), Color.White * (dragActive ?1.5f:1f));
+            if (!UI.IsInteracting(Handed.Right) && hand.IsJustPinched) 
+            {
+                justStart  = terrainDrag;
+                justFinger = hand[FingerId.Thumb, JointId.Tip].position;
+                dragActive = true;
+            }
+            if (dragActive && hand.IsPinched)
+            {
+                Vec3 newPos = justStart + (hand[FingerId.Thumb, JointId.Tip].position - justFinger);
+                newPos.y = 0;
+                terrainDrag = newPos;
+            }
+            if (hand.IsJustUnpinched)
+                dragActive = false;
+        }
+
+        terrain.Position = terrainDrag;
+        terrain.Update();
     }
 
     ///////////////////////////////////////////
@@ -176,15 +184,14 @@ class Program
     static void SetScale(float newScale)
     {
         // Set the terrain dimensions with the new scale
-        terrain.SetHeightDimensions(mapHeightSize  *newScale, mapHeightCenter*newScale);
-        terrain.SetColorDimensions (mapColorSize.XZ*newScale, mapColorCenter *newScale);
+        terrain.SetHeightmapDimensions(mapHeightSize  *newScale, mapHeightCenter*newScale);
+        terrain.SetColormapDimensions (mapColorSize.XZ*newScale, mapColorCenter *newScale);
 
         // Bring out translation into geographical space, and then scale it
         // back down into the new scale
         Vec3 geoTranslation = terrainDrag / terrainScale;
         terrainDrag = geoTranslation * newScale;
-        terrain.Translation = terrainPose.position + terrainDrag;
-        terrain.ClipCenter = -terrainDrag;
+        terrain.Position = terrainDrag;
 
         terrainScale = newScale;
     }
@@ -197,22 +204,21 @@ class Program
             return;
         locationId = id;
 
-        terrain.SetColorData (Default.Tex,      Vec2.Zero, Vec2.Zero);
-        terrain.SetHeightData(Default.TexBlack, Vec3.Zero, Vec2.Zero);
-        terrain.Translation = terrainPose.position;
-        terrain.ClipCenter  = Vec3.Zero;
+        terrain.SetColormapData (Default.Tex,      Vec2.Zero, Vec2.Zero);
+        terrain.SetHeightmapData(Default.TexBlack, Vec3.Zero, Vec2.Zero);
+        terrain.Position = terrainPose.position;
         terrainDrag = Vec3.Zero;
 
         BingMaps.RequestColor(ApiKey, ImageryType.Aerial, locationQueries[id], (tex, size, center) => {
             mapColorSize   = size;
             mapColorCenter = center;
-            terrain.SetColorData(tex, size.XZ*terrainScale, center*terrainScale);
+            terrain.SetColormapData(tex, size.XZ*terrainScale, center*terrainScale);
         }).ConfigureAwait(false);
 
         BingMaps.RequestHeight(ApiKey, locationQueries[id], (tex, size, center) => {
             mapHeightSize   = size;
             mapHeightCenter = center;
-            terrain.SetHeightData(tex, size*terrainScale, center*terrainScale);
+            terrain.SetHeightmapData(tex, size*terrainScale, center*terrainScale);
         }).ConfigureAwait(false);
     }
 }

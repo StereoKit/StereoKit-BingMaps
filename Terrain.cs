@@ -1,51 +1,35 @@
 ﻿using StereoKit;
-using System;
 
 class Terrain
 {
-    enum LodMode
-    {
-        Center,
-        Head,
-        Constant
-    }
     struct Chunk 
     {
         public Vec3   centerOffset;
         public Matrix transform;
-        public int    lod;
     }
 
     ///////////////////////////////////////////
     
-    Chunk[] chunks;
-    Vec3    chunkCenter;
-    float   chunkSize;
+    Chunk[]  chunks;
+    Vec3     chunkCenter;
+    float    chunkSize;
 
-    Vec3     translation;
-    Vec3     clipCenter;
-    float    terrainHeight = 1;
-    Vec4     heightSize;
-    Vec4     colorSize;
     Material terrainMaterial;
-    Mesh[]   meshLods = new Mesh[4];
-    LodMode  lodMode  = LodMode.Constant;
-    float    clipRadius = 0.5f;
+    Mesh     terrainMesh;
+    Vec3     terrainPosition;
+
+    Vec2     heightmapStart;
+    Vec3     heightmapSize;
+    Vec2     colormapStart;
+    Vec2     colormapSize;
 
     ///////////////////////////////////////////
-    
-    public Vec3 Translation { 
-        get => translation; 
-        set { translation = value; UpdateClipVars(); UpdateChunks(); } }
-    public Vec3 ClipCenter {
-        get => clipCenter;
-        set { clipCenter = value; UpdateClipVars(); } }
-    public float ClipRadius {
-        get => clipRadius;
-        set { clipRadius = value; UpdateClipVars(); } }
-    public float Height { 
-        get => terrainHeight;
-        set { terrainHeight = value; terrainMaterial["world_height"] = value; } }
+
+    public float clipRadius = 0.5f;
+
+    public Vec3 Position { 
+        get => terrainPosition; 
+        set  { terrainPosition = value; UpdateChunks(); } }
 
     public Material Material => terrainMaterial;
 
@@ -55,16 +39,10 @@ class Terrain
     {
         this.chunkSize = chunkSize;
         chunkCenter = Vec3.Zero;
-        translation = Vec3.Zero;
+        terrainPosition = Vec3.Zero;
 
         terrainMaterial = new Material(Shader.FromFile(@"terrain.hlsl"));
-        
-        int subdivisions = chunkDetail;
-        for (int i = 0; i < meshLods.Length; i++)
-        {
-            meshLods[i]  = Mesh.GeneratePlane(Vec2.One*chunkSize, subdivisions);
-            subdivisions = subdivisions / 2;
-        }
+        terrainMesh     = Mesh.GeneratePlane(Vec2.One * chunkSize, chunkDetail);
 
         if (chunkGrid %2 != 1)
             chunkGrid += 1;
@@ -76,117 +54,84 @@ class Terrain
             Vec3 pos = new Vec3(x - half, 0, y - half) * chunkSize;
             chunks[x+y*chunkGrid].centerOffset = pos;
         } }
-        UpdateClipVars();
+
         UpdateChunks();
     }
 
     ///////////////////////////////////////////
 
-    public void SetHeightData(Tex heightData, Vec3 heightDimensions, Vec2 heightCenter)
+    public void SetHeightmapData(Tex heightData, Vec3 heightDimensions, Vec2 heightCenter)
     {
-        SetHeightDimensions(heightDimensions, heightCenter);
+        SetHeightmapDimensions(heightDimensions, heightCenter);
         terrainMaterial["world"] = heightData;
     }
 
     ///////////////////////////////////////////
 
-    public void SetHeightDimensions(Vec3 heightDimensions, Vec2 heightCenter)
+    public void SetHeightmapDimensions(Vec3 heightDimensions, Vec2 heightCenter)
     {
-        heightSize.XY = heightCenter - heightDimensions.XZ / 2;
-        heightSize.ZW = heightDimensions.XZ;
-        terrainMaterial["world_size"  ] = heightSize;
-        terrainMaterial["world_height"] = heightDimensions.y;
+        heightmapStart = heightCenter - heightDimensions.XZ / 2;
+        heightmapSize  = heightDimensions;
     }
 
     ///////////////////////////////////////////
 
-    public void SetColorData(Tex colorData, Vec2 colorDimensions, Vec2 colorCenter)
+    public void SetColormapData(Tex colorData, Vec2 colorDimensions, Vec2 colorCenter)
     {
-        SetColorDimensions(colorDimensions, colorCenter);
+        SetColormapDimensions(colorDimensions, colorCenter);
         terrainMaterial["world_color"] = colorData;
     }
 
     ///////////////////////////////////////////
 
-    public void SetColorDimensions(Vec2 colorDimensions, Vec2 colorCenter)
+    public void SetColormapDimensions(Vec2 colorDimensions, Vec2 colorCenter)
     {
-        colorSize.XY = colorCenter - colorDimensions / 2;
-        colorSize.ZW = colorDimensions;
-        terrainMaterial["color_size"] = colorSize;
-    }
-
-    ///////////////////////////////////////////
-
-    void UpdateClipVars()
-    {
-        terrainMaterial["clip_vars"] = new Vec4(
-            translation.x + clipCenter.x, 
-            translation.y + clipCenter.y, 
-            translation.z + clipCenter.z, 
-            clipRadius*clipRadius);
+        colormapStart = colorCenter - colorDimensions / 2;
+        colormapSize  = colorDimensions;
     }
 
     ///////////////////////////////////////////
 
     void UpdateChunks() 
     {
-        terrainMaterial["world_size"] = new Vec4(
-            heightSize.x + translation.x,
-            heightSize.y + translation.z,
-            heightSize.z, heightSize.w);
-
-        terrainMaterial["color_size"] = new Vec4(
-            colorSize.x + translation.x,
-            colorSize.y + translation.z,
-            colorSize.z, colorSize.w);
-
         for (int i = 0; i < chunks.Length; i++)
-            chunks[i].transform = Matrix.T(chunks[i].centerOffset+chunkCenter+translation);
-        UpdateLod();
-    }
-
-    ///////////////////////////////////////////
-
-    void UpdateLod()
-    {
-        switch (lodMode) {
-            case LodMode.Constant:
-            {
-                for (int i = 0; i < chunks.Length; i++)
-                    chunks[i].lod = 0;
-            }break;
-            case LodMode.Center:
-            {
-                for (int i = 0; i < chunks.Length; i++)
-                    chunks[i].lod = (int)Math.Min(meshLods.Length - 1, ((chunks[i].centerOffset.Magnitude / chunkSize)));
-            } break;
-            case LodMode.Head:
-            {
-                Vec3 headRel = Input.Head.position - chunkCenter;
-                for (int i = 0; i < chunks.Length; i++)
-                    chunks[i].lod = (int)Math.Min(meshLods.Length - 1, (((chunks[i].centerOffset-headRel).Magnitude / chunkSize)));
-            } break;
-        }
+            chunks[i].transform = Matrix.T(chunks[i].centerOffset+chunkCenter+terrainPosition);
     }
 
     ///////////////////////////////////////////
 
     public void Update()
     {
-        Vec3 offset = clipCenter - chunkCenter;
+        Vec3 offset = terrainPosition - chunkCenter;
         bool update = false;
-        if      (offset.x > chunkSize*0.4f ) { chunkCenter.x += chunkSize*0.5f; update = true; }
+        if      (offset.x > chunkSize* 0.4f) { chunkCenter.x += chunkSize*0.5f; update = true; }
         else if (offset.x < chunkSize*-0.4f) { chunkCenter.x -= chunkSize*0.5f; update = true; }
-        if      (offset.z > chunkSize*0.4f ) { chunkCenter.z += chunkSize*0.5f; update = true; }
+        if      (offset.z > chunkSize* 0.4f) { chunkCenter.z += chunkSize*0.5f; update = true; }
         else if (offset.z < chunkSize*-0.4f) { chunkCenter.z -= chunkSize*0.5f; update = true; }
         if (update) UpdateChunks();
 
-        if (lodMode == LodMode.Head)
-            UpdateLod();
+        Vec4 heightParams = new Vec4();
+        heightParams.XY = Hierarchy.ToWorld         (terrainPosition + heightmapStart.X0Y).XZ;
+        heightParams.ZW = Hierarchy.ToWorldDirection(heightmapSize.XZ.X0Y).XZ;
+        terrainMaterial["world_size"] = heightParams;
+
+        Vec4 colorParams = new Vec4();
+        colorParams.XY = Hierarchy.ToWorld         (terrainPosition + colormapStart.X0Y).XZ;
+        colorParams.ZW = Hierarchy.ToWorldDirection(colormapSize.X0Y).XZ;
+        terrainMaterial["color_size"] = colorParams;
+
+        Vec3 sizes            = Hierarchy.ToWorldDirection(new Vec3(clipRadius, heightmapSize.y, 0));
+        Vec3 clipCenterShader = Hierarchy.ToWorld(Vec3.Zero);
+        terrainMaterial["clip_vars"] = new Vec4(
+            clipCenterShader.x,
+            clipCenterShader.y,
+            clipCenterShader.z,
+            sizes.x * sizes.x);
+        terrainMaterial["world_height"] = sizes.y;
 
         for (int i = 0; i < chunks.Length; i++)
         {
-            meshLods[chunks[i].lod].Draw(terrainMaterial, chunks[i].transform);
+            terrainMesh.Draw(terrainMaterial, chunks[i].transform);
         }
     }
 }
