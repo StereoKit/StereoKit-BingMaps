@@ -14,9 +14,9 @@ class Terrain
     Vec3     chunkCenter;
     float    chunkSize;
 
-    Material terrainMaterial;
-    Mesh     terrainMesh;
-    Vec3     terrainPosition;
+    Material material;
+    Mesh     mesh;
+    Vec3     localPosition;
 
     Vec2     heightmapStart;
     Vec3     heightmapSize;
@@ -27,30 +27,34 @@ class Terrain
 
     public float clipRadius = 0.5f;
 
-    public Vec3 Position { 
-        get => terrainPosition; 
-        set  { terrainPosition = value; UpdateChunks(); } }
+    public Vec3 LocalPosition { 
+        get => localPosition; 
+        set  { localPosition = value; UpdateChunks(); } }
 
-    public Material Material => terrainMaterial;
+    public Material Material => material;
 
     ///////////////////////////////////////////
     
     public Terrain(int chunkDetail, float chunkSize, int chunkGrid)
     {
-        this.chunkSize = chunkSize;
-        chunkCenter = Vec3.Zero;
-        terrainPosition = Vec3.Zero;
+        this.chunkSize  = chunkSize;
+        chunkCenter     = Vec3.Zero;
+        localPosition   = Vec3.Zero;
 
-        terrainMaterial = new Material(Shader.FromFile(@"terrain.hlsl"));
-        terrainMesh     = Mesh.GeneratePlane(Vec2.One * chunkSize, chunkDetail);
+        // Assets that the terrain needs to render! terrain.hlsl is an 
+        // important part of this terrain code, which does not stand on its 
+        // own without the shader. To completely undestand this code, you'll
+        // also need to look at the shader!
+        material = new Material(Shader.FromFile("terrain.hlsl"));
+        mesh     = Mesh.GeneratePlane(Vec2.One * chunkSize, chunkDetail);
 
-        if (chunkGrid %2 != 1)
-            chunkGrid += 1;
+        //if (chunkGrid %2 != 1)
+        //    chunkGrid += 1;
 
         chunks = new Chunk[chunkGrid * chunkGrid];
         float half = (int)(chunkGrid/2.0f);
         for (int y = 0; y < chunkGrid; y++) {
-        for (int x = 0; x < chunkGrid; x++)  {
+        for (int x = 0; x < chunkGrid; x++) {
             Vec3 pos = new Vec3(x - half, 0, y - half) * chunkSize;
             chunks[x+y*chunkGrid].centerOffset = pos;
         } }
@@ -63,7 +67,7 @@ class Terrain
     public void SetHeightmapData(Tex heightData, Vec3 heightDimensions, Vec2 heightCenter)
     {
         SetHeightmapDimensions(heightDimensions, heightCenter);
-        terrainMaterial["world"] = heightData;
+        material["world"] = heightData;
     }
 
     ///////////////////////////////////////////
@@ -79,7 +83,7 @@ class Terrain
     public void SetColormapData(Tex colorData, Vec2 colorDimensions, Vec2 colorCenter)
     {
         SetColormapDimensions(colorDimensions, colorCenter);
-        terrainMaterial["world_color"] = colorData;
+        material["world_color"] = colorData;
     }
 
     ///////////////////////////////////////////
@@ -95,14 +99,18 @@ class Terrain
     void UpdateChunks() 
     {
         for (int i = 0; i < chunks.Length; i++)
-            chunks[i].transform = Matrix.T(chunks[i].centerOffset+chunkCenter+terrainPosition);
+            chunks[i].transform = Matrix.T(chunks[i].centerOffset+chunkCenter+localPosition);
     }
 
     ///////////////////////////////////////////
 
     public void Update()
     {
-        Vec3 offset = chunkCenter+terrainPosition;
+        // Ensure the terrain chunks are centered around the local origin, 
+        // since this is where the radius clipping happens. Chunks are
+        // located at chunkCenter + terrainPosition, so chunkCenter kinda 
+        // behaves like a -terrainPosition that's snapped to grid intervals.
+        Vec3 offset = chunkCenter + localPosition;
         bool update = false;
         if      (offset.x > chunkSize* 0.4f) { chunkCenter.x -= chunkSize*0.5f; update = true; }
         else if (offset.x < chunkSize*-0.4f) { chunkCenter.x += chunkSize*0.5f; update = true; }
@@ -110,28 +118,38 @@ class Terrain
         else if (offset.z < chunkSize*-0.4f) { chunkCenter.z += chunkSize*0.5f; update = true; }
         if (update) UpdateChunks();
 
+        // The shader uses world coordinates for the color and height map UV
+        // lookups, but the shader parameters aren't affected by Hierarchy
+        // transforms. So we need to do this ourselves to ensure that 
+        // Hierarchy functionality still works. For simplicity, this terrain 
+        // does not account for rotation, so if that's embedded in the
+        // Hierachy, we'll get undefined behavior.
         Vec4 heightParams = new Vec4();
-        heightParams.XY = Hierarchy.ToWorld         (terrainPosition + heightmapStart.X0Y).XZ;
+        heightParams.XY = Hierarchy.ToWorld         (localPosition + heightmapStart.X0Y).XZ;
         heightParams.ZW = Hierarchy.ToWorldDirection(heightmapSize.XZ.X0Y).XZ;
-        terrainMaterial["world_size"] = heightParams;
+        material["world_size"] = heightParams;
 
         Vec4 colorParams = new Vec4();
-        colorParams.XY = Hierarchy.ToWorld         (terrainPosition + colormapStart.X0Y).XZ;
+        colorParams.XY = Hierarchy.ToWorld         (localPosition + colormapStart.X0Y).XZ;
         colorParams.ZW = Hierarchy.ToWorldDirection(colormapSize.X0Y).XZ;
-        terrainMaterial["color_size"] = colorParams;
+        material["color_size"] = colorParams;
 
+        // Do the same for the shader clip parameters! Note that clip radius 
+        // is provided as squared clip radius, which is an easy optimization
+        // to skip an extra multiply in the pixel shader.
         Vec3 sizes            = Hierarchy.ToWorldDirection(new Vec3(clipRadius, heightmapSize.y, 0));
         Vec3 clipCenterShader = Hierarchy.ToWorld(Vec3.Zero);
-        terrainMaterial["clip_vars"] = new Vec4(
+        material["clip_vars"] = new Vec4(
             clipCenterShader.x,
             clipCenterShader.y,
             clipCenterShader.z,
             sizes.x * sizes.x);
-        terrainMaterial["world_height"] = sizes.y;
+        material["world_height"] = sizes.y;
 
+        // Draw each terrain chunk!
         for (int i = 0; i < chunks.Length; i++)
         {
-            terrainMesh.Draw(terrainMaterial, chunks[i].transform);
+            mesh.Draw(material, chunks[i].transform);
         }
     }
 }

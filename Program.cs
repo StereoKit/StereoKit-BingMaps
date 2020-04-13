@@ -18,14 +18,11 @@ class Program
 
     static Vec2        mapHeightCenter;
     static Vec3        mapHeightSize;
-
     static Vec2        mapColorCenter;
     static Vec3        mapColorSize;
 
     static Terrain     terrain;
     static float       terrainScale   = 0.00004f;
-    static float       uiTerrainScale = 0.00004f;
-    static Vec3        terrainDrag;
     static Pose        terrainPose    = new Pose(0, 0, -0.5f, Quat.Identity);
     static float       uiAngle        = 0;
     
@@ -33,8 +30,8 @@ class Program
     static Model compassModel;
     static Model widgetModel;
 
-    static Vec3 justStart;
-    static Vec3 justFinger;
+    static Vec3 dragStart;
+    static Vec3 dragWidgetStart;
     static bool dragActive;
 
     static Mesh     floorMesh;
@@ -69,7 +66,7 @@ class Program
         compassModel  = Model.FromFile("Compass.glb");
         widgetModel   = Model.FromFile("MoveWidget.glb");
 
-        terrain = new Terrain(64, 1, 3);
+        terrain = new Terrain(64, 0.3f, 3);
         terrain.clipRadius = 0.3f;
 
         // Add a floor if we're in VR, and hide the hands if we're in AR!
@@ -83,6 +80,7 @@ class Program
         else
         {
             Default.MaterialHand[MatParamName.ColorTint] = Color.Black;
+            //Input.HandVisible(Handed.Max, false);
         }
         
         LoadLocation(0);
@@ -137,8 +135,9 @@ class Program
         if (UI.Radio("Machu Picchu", locationId == 3, btnSize)) LoadLocation(3);
 
         // Scale slider to zoom in and out
-        if (UI.HSlider("Scale", ref uiTerrainScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m))
-            SetScale(uiTerrainScale);
+        float uiScale = terrainScale;
+        if (UI.HSlider("Scale", ref uiScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m))
+            SetScale(uiScale);
 
         UI.WindowEnd();
 
@@ -151,29 +150,50 @@ class Program
 
     static void ShowTerrain()
     {
-        Hand hand = Input.Hand(Handed.Right);
+        // The first part of this method is dragging the terrain itself around
+        // on the pedestal! Then after that, we can draw it :)
+
+        // Here we're getting hand information that we'll use to calculate
+        // the user's hand drag action.
+        Hand hand      = Input.Hand(Handed.Right);
         Vec3 widgetPos = Hierarchy.ToLocal(
             hand[FingerId.Index, JointId.Tip].position * 0.5f + 
             hand[FingerId.Thumb, JointId.Tip].position * 0.5f);
-        if (dragActive || widgetPos.XZ.MagnitudeSq < terrain.clipRadius*terrain.clipRadius && widgetPos.y > 0) { 
-            widgetModel.Draw(Matrix.TS(widgetPos, dragActive?1.5f:1), Color.White * (dragActive ?1.5f:1f));
+        bool handInVolume = widgetPos.y > 0
+             && widgetPos.XZ.Magnitude < terrain.clipRadius; // For speed, use MagnitudeSq and clipRadius^2
+
+        if (dragActive || handInVolume) {
+            // Render a little compass widget between the fingers, as an 
+            // indicator that users can grab/pinch it to move the map.
+            float activeMod = dragActive ? 1.5f : 1;
+            widgetModel.Draw(Matrix.TS(widgetPos, activeMod), Color.White*activeMod);
+
+            // UI.IsInteracting tells us if an existing UI element is active.
+            // If so, we don't want to steal focus from it, and can ignore
+            // this IsJustPinched.
             if (!UI.IsInteracting(Handed.Right) && hand.IsJustPinched) 
             {
-                justStart  = terrainDrag;
-                justFinger = hand[FingerId.Thumb, JointId.Tip].position;
-                dragActive = true;
+                // Save the initial positions, so we can calculate the drag
+                // vector relative to the start point.
+                dragStart       = terrain.LocalPosition;
+                dragWidgetStart = widgetPos;
+                dragActive      = true;
             }
+
             if (dragActive && hand.IsPinched)
             {
-                Vec3 newPos = justStart + (hand[FingerId.Thumb, JointId.Tip].position - justFinger);
+                // Update the terrain based on the current drag amount.
+                Vec3 newPos = dragStart + (widgetPos - dragWidgetStart);
                 newPos.y = 0;
-                terrainDrag = newPos;
+                terrain.LocalPosition = newPos;
             }
+
+            // Done with dragging!
             if (hand.IsJustUnpinched)
                 dragActive = false;
         }
 
-        terrain.Position = terrainDrag;
+        // Update and draw the terrain itself
         terrain.Update();
     }
 
@@ -187,9 +207,8 @@ class Program
 
         // Bring out translation into geographical space, and then scale it
         // back down into the new scale
-        Vec3 geoTranslation = terrainDrag / terrainScale;
-        terrainDrag = geoTranslation * newScale;
-        terrain.Position = terrainDrag;
+        Vec3 geoTranslation = terrain.LocalPosition / terrainScale;
+        terrain.LocalPosition = geoTranslation * newScale;
 
         terrainScale = newScale;
     }
@@ -204,8 +223,7 @@ class Program
 
         terrain.SetColormapData (Default.Tex,      Vec2.Zero, Vec2.Zero);
         terrain.SetHeightmapData(Default.TexBlack, Vec3.Zero, Vec2.Zero);
-        terrain.Position = terrainPose.position;
-        terrainDrag = Vec3.Zero;
+        terrain.LocalPosition = Vec3.Zero;
 
         BingMaps.RequestColor(ApiKey, ImageryType.Aerial, locationQueries[id], (tex, size, center) => {
             mapColorSize   = size;
