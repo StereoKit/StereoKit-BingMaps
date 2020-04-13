@@ -10,18 +10,16 @@ class Terrain
 
 	///////////////////////////////////////////
 
-	Chunk[]  chunks;
-	Vec3     chunkCenter;
-	float    chunkSize;
+	Chunk[] chunks;
+	Vec3    chunkCenter;
+	float   chunkSize;
 
-	Material material;
-	Mesh     mesh;
-	Vec3     localPosition;
-
-	Vec2     heightmapStart;
-	Vec3     heightmapSize;
-	Vec2     colormapStart;
-	Vec2     colormapSize;
+	Mesh    mesh;
+	Vec3    localPosition;
+	Vec2    heightmapStart;
+	Vec3    heightmapSize;
+	Vec2    colormapStart;
+	Vec2    colormapSize;
 
 	///////////////////////////////////////////
 
@@ -31,7 +29,7 @@ class Terrain
 		get => localPosition; 
 		set  { localPosition = value; UpdateChunks(); } }
 
-	public Material Material => material;
+	public Material Material { get; private set; }
 
 	///////////////////////////////////////////
 
@@ -45,7 +43,7 @@ class Terrain
 		// important part of this terrain code, which does not stand on its 
 		// own without the shader. To completely undestand this code, you'll
 		// also need to look at the shader!
-		material = new Material(Shader.FromFile("terrain.hlsl"));
+		Material = new Material(Shader.FromFile("terrain.hlsl"));
 		mesh     = Mesh.GeneratePlane(Vec2.One * chunkSize, chunkDetail);
 
 		// Each chunk gets an offset from the center. We never modify the 
@@ -67,7 +65,7 @@ class Terrain
 	public void SetHeightmapData(Tex heightData, Vec3 heightDimensions, Vec2 heightCenter)
 	{
 		SetHeightmapDimensions(heightDimensions, heightCenter);
-		material["world"] = heightData;
+		Material["world"] = heightData;
 	}
 
 	///////////////////////////////////////////
@@ -83,7 +81,7 @@ class Terrain
 	public void SetColormapData(Tex colorData, Vec2 colorDimensions, Vec2 colorCenter)
 	{
 		SetColormapDimensions(colorDimensions, colorCenter);
-		material["world_color"] = colorData;
+		Material["world_color"] = colorData;
 	}
 
 	///////////////////////////////////////////
@@ -130,29 +128,29 @@ class Terrain
 		Vec4 heightParams = new Vec4();
 		heightParams.XY = Hierarchy.ToWorld         (localPosition + heightmapStart.X0Y).XZ;
 		heightParams.ZW = Hierarchy.ToWorldDirection(heightmapSize.XZ.X0Y).XZ;
-		material["world_size"] = heightParams;
+		Material["world_size"] = heightParams;
 
 		Vec4 colorParams = new Vec4();
 		colorParams.XY = Hierarchy.ToWorld         (localPosition + colormapStart.X0Y).XZ;
 		colorParams.ZW = Hierarchy.ToWorldDirection(colormapSize.X0Y).XZ;
-		material["color_size"] = colorParams;
+		Material["color_size"] = colorParams;
 
 		// Do the same for the shader clip parameters! Note that clip radius 
 		// is provided as squared clip radius, which is an easy optimization
 		// to skip an extra multiply in the pixel shader.
 		Vec3 sizes            = Hierarchy.ToWorldDirection(new Vec3(clipRadius, heightmapSize.y, 0));
 		Vec3 clipCenterShader = Hierarchy.ToWorld(Vec3.Zero);
-		material["clip_vars"] = new Vec4(
+		Material["clip_vars"] = new Vec4(
 			clipCenterShader.x,
 			clipCenterShader.y,
 			clipCenterShader.z,
 			sizes.x * sizes.x);
-		material["world_height"] = sizes.y;
+		Material["world_height"] = sizes.y;
 
 		// Draw each terrain chunk!
 		for (int i = 0; i < chunks.Length; i++)
 		{
-			mesh.Draw(material, chunks[i].transform);
+			mesh.Draw(Material, chunks[i].transform);
 		}
 	}
 }
