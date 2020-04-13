@@ -49,8 +49,10 @@ class Program
 
 		while (StereoKitApp.Step(() =>
 		{
+			// We might not have a floor model if we're in AR!
 			floorMesh?.Draw(floorMat, Matrix.T(0,-1.5f,0));
 
+			// Draw the terrain widget!
 			ShowTerrainWidget();
 		}));
 
@@ -61,11 +63,12 @@ class Program
 
 	static void Initialize()
 	{
+		// Art resources for the terrain widget
 		pedestalModel = Model.FromFile("Pedestal.glb", Default.ShaderUI);
 		compassModel  = Model.FromFile("Compass.glb");
 		widgetModel   = Model.FromFile("MoveWidget.glb");
 
-		terrain = new Terrain(64, 0.3f, 3);
+		terrain = new Terrain(64, 0.6f, 2);
 		terrain.clipRadius = 0.3f;
 
 		// Add a floor if we're in VR, and hide the hands if we're in AR!
@@ -82,7 +85,53 @@ class Program
 			//Input.HandVisible(Handed.Max, false);
 		}
 
+		// Load up an initial, default location
 		LoadLocation(0);
+	}
+
+	///////////////////////////////////////////
+
+	static void ShowTerrainWidget()
+	{
+		// Create an affordance for the pedestal the terrain and UI will rest
+		// on. The user can drag this around the environment, but it doesn't
+		// rotate at all.
+		float pedestalScale = terrain.clipRadius * 2;
+		UI.AffordanceBegin("TerrainWidget", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
+		pedestalModel.Draw(Matrix.TS(Vec3.Zero, pedestalScale));
+
+		// We've got a simple UI attached to the pedestal, just a list of 
+		// places we can display, and a scale slider. It'll face towards the
+		// user at fixed intervals, and won't slide around. This means it's
+		// easy to access, but not hard to touch.
+		Vec3 uiDir  = CalcPedestalUIDir();
+		Pose uiPose = new Pose(uiDir * (terrain.clipRadius + 0.04f), Quat.LookDir(uiDir+Vec3.Up));
+		compassModel.Draw(Matrix.TS(uiDir * (terrain.clipRadius + 0.01f) + Vec3.Up * 0.02f, 0.4f));
+		UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(30,0) * Units.cm2m, false);
+
+		// Show location buttons
+		Vec2 btnSize = new Vec2(6, 3) * Units.cm2m;
+		if (UI.Radio("Kauai",        locationId == 0, btnSize)) LoadLocation(0);
+		UI.SameLine();
+		if (UI.Radio("Grand Canyon", locationId == 1, btnSize)) LoadLocation(1);
+		UI.SameLine();
+		if (UI.Radio("Mt. Everest",  locationId == 2, btnSize)) LoadLocation(2);
+		UI.SameLine();
+		if (UI.Radio("Machu Picchu", locationId == 3, btnSize)) LoadLocation(3);
+
+		// Scale slider to zoom in and out
+		float uiScale = terrainScale;
+		if (UI.HSlider("Scale", ref uiScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m))
+		{ 
+			SetScale(uiScale);
+		}
+
+		UI.WindowEnd(); // End TerrainOptions
+
+		// Now we'll display the terrain on top of the pedestal!
+		ShowTerrain();
+
+		UI.AffordanceEnd(); // End TerrainWidget
 	}
 
 	///////////////////////////////////////////
@@ -103,46 +152,13 @@ class Program
 		const float stickyAmount = 20;
 		float angle = dir.XZ.Angle();
 		if (SKMath.AngleDist(angle, uiAngle) > snapAngle/2 + stickyAmount)
+		{ 
 			uiAngle = (int)(angle/snapAngle) * snapAngle + snapAngle/2;
+		}
 
 		// Turn the angle back into a direction we can use to position the
 		// pedestal
 		return Vec3.AngleXZ(uiAngle);
-	}
-
-	///////////////////////////////////////////
-
-	static void ShowTerrainWidget()
-	{
-		float pedestalScale = terrain.clipRadius * 2;
-		UI.AffordanceBegin("TerrainWidget", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
-		pedestalModel.Draw(Matrix.TS(Vec3.Zero, pedestalScale));
-
-		Vec3 uiDir  = CalcPedestalUIDir();
-		Pose uiPose = new Pose(uiDir * (terrain.clipRadius + 0.04f), Quat.LookDir(uiDir+Vec3.Up));
-		compassModel.Draw(Matrix.TS(uiDir * (terrain.clipRadius + 0.01f) + Vec3.Up * 0.02f, 0.4f));
-		UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(30,0) * Units.cm2m, false);
-
-		// Show location buttons
-		Vec2 btnSize = new Vec2(6, 3) * Units.cm2m;
-		if (UI.Radio("Kauai",        locationId == 0, btnSize)) LoadLocation(0);
-		UI.SameLine();
-		if (UI.Radio("Grand Canyon", locationId == 1, btnSize)) LoadLocation(1);
-		UI.SameLine();
-		if (UI.Radio("Mt. Everest",  locationId == 2, btnSize)) LoadLocation(2);
-		UI.SameLine();
-		if (UI.Radio("Machu Picchu", locationId == 3, btnSize)) LoadLocation(3);
-
-		// Scale slider to zoom in and out
-		float uiScale = terrainScale;
-		if (UI.HSlider("Scale", ref uiScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m))
-			SetScale(uiScale);
-
-		UI.WindowEnd(); // End TerrainOptions
-
-		ShowTerrain();
-
-		UI.AffordanceEnd(); // End TerrainWidget
 	}
 
 	///////////////////////////////////////////
@@ -161,7 +177,8 @@ class Program
 		bool handInVolume = widgetPos.y > 0
 				&& widgetPos.XZ.Magnitude < terrain.clipRadius; // For speed, use MagnitudeSq and clipRadius^2
 
-		if (dragActive || handInVolume) {
+		if (dragActive || handInVolume) 
+		{
 			// Render a little compass widget between the fingers, as an 
 			// indicator that users can grab/pinch it to move the map.
 			float activeMod = dragActive ? 1.5f : 1;
@@ -216,8 +233,7 @@ class Program
 
 	static void LoadLocation(int id)    
 	{
-		if (locationId == id)
-			return;
+		if (locationId == id) return;
 		locationId = id;
 
 		// Reset data first, set terrain data values back to default!

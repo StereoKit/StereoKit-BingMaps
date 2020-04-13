@@ -48,17 +48,17 @@ class Terrain
 		material = new Material(Shader.FromFile("terrain.hlsl"));
 		mesh     = Mesh.GeneratePlane(Vec2.One * chunkSize, chunkDetail);
 
-		//if (chunkGrid %2 != 1)
-		//    chunkGrid += 1;
-
+		// Each chunk gets an offset from the center. We never modify the 
+		// offset later, but we do move around the center.
 		chunks = new Chunk[chunkGrid * chunkGrid];
-		float half = (int)(chunkGrid/2.0f);
+		float half = (chunkGrid/2.0f) - 0.5f;
 		for (int y = 0; y < chunkGrid; y++) {
 		for (int x = 0; x < chunkGrid; x++) {
 			Vec3 pos = new Vec3(x - half, 0, y - half) * chunkSize;
 			chunks[x+y*chunkGrid].centerOffset = pos;
 		} }
 
+		// Cache the transform matrix for each chunk.
 		UpdateChunks();
 	}
 
@@ -98,6 +98,9 @@ class Terrain
 
 	void UpdateChunks() 
 	{
+		// Generates a matrix for each chunk, this is the combination of the
+		// terrain's position, plus the mesh's 'chunkCenter' location on the
+		// terrain, and then the chunk's individual offset from that.
 		for (int i = 0; i < chunks.Length; i++)
 			chunks[i].transform = Matrix.T(chunks[i].centerOffset+chunkCenter+localPosition);
 	}

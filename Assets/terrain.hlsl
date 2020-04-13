@@ -37,26 +37,36 @@ SamplerState world_color_sampler : register(s1);
 psIn vs(vsIn input, uint id : SV_InstanceID) {
 	psIn output;
 	
+	// Transform the vertex position into world space
 	float4 world_pos = mul(input.pos, sk_inst[id].world);
+	output.world     = world_pos.xyz;
+
+	// Calculate terrain world UVs based on each texture's layout information
 	float2 world_uv  = (world_pos.xz - world_size.xy) / world_size.zw;
 	output.uv        = (world_pos.xz - color_size.xy) / color_size.zw;
-	output.world     = world_pos.xyz;
-	world_pos.y     += world.SampleLevel(world_sampler, world_uv, 0).r * world_height;
-	output.pos       = mul(world_pos, sk_viewproj[sk_inst[id].view_id]);
 
-	output.view_id    = sk_inst[id].view_id;
+	// Offset the vert's height by a sample from the heightmap
+	world_pos.y += world.SampleLevel(world_sampler, world_uv, 0).r * world_height;
+
+	// Get the vertex position on screen
+	output.pos     = mul(world_pos, sk_viewproj[sk_inst[id].view_id]);
+	output.view_id = sk_inst[id].view_id;
 	return output;
 }
 
 ///////////////////////////////////////////
 
 float4 ps(psIn input) : SV_TARGET{
-	float2 diff = input.world.xz - clip_vars.xz;
-	float  dist_field = clip_vars.w -dot(diff, diff);
+	// Find the distance from this point to the clip center, and discard the
+	// pixel if it's too far.
+	float2 diff       = input.world.xz - clip_vars.xz;
+	float  dist_field = clip_vars.w - dot(diff, diff);
 	clip( dist_field );
 
-	float4 col  = world_color.Sample(world_color_sampler, input.uv);
+	// Sample the texture's color
+	float4 color = world_color.Sample(world_color_sampler, input.uv);
+	// Add a little highlight around the edge of the clip radius
 	float  fade = 1-saturate(dist_field*300);
-	col.rgb += fade;
-	return col;
+	color.rgb += fade;
+	return color;
 }
