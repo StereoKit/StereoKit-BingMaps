@@ -55,9 +55,7 @@ class Program
         {
             floorMesh?.Draw(floorMat, Matrix.T(0,-1.5f,0));
 
-            Hierarchy.Push(Matrix.TS(Vec3.Zero, 0.5f));
-            ShowPedestalControls();
-            Hierarchy.Pop();
+            ShowTerrainWidget();
         }));
 
         StereoKitApp.Shutdown();
@@ -71,7 +69,7 @@ class Program
         compassModel  = Model.FromFile("Compass.glb");
         widgetModel   = Model.FromFile("MoveWidget.glb");
 
-        terrain = new Terrain(128, 1, 3);
+        terrain = new Terrain(64, 1, 3);
         terrain.clipRadius = 0.3f;
 
         // Add a floor if we're in VR, and hide the hands if we're in AR!
@@ -84,7 +82,7 @@ class Program
         }
         else
         {
-            Input.HandVisible(Handed.Max, false);
+            Default.MaterialHand[MatParamName.ColorTint] = Color.Black;
         }
         
         LoadLocation(0);
@@ -117,7 +115,7 @@ class Program
 
     ///////////////////////////////////////////
     
-    static void ShowPedestalControls()
+    static void ShowTerrainWidget()
     {
         float pedestalScale = terrain.clipRadius * 2;
         UI.AffordanceBegin("Terrain", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);

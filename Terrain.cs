@@ -102,12 +102,12 @@ class Terrain
 
     public void Update()
     {
-        Vec3 offset = terrainPosition - chunkCenter;
+        Vec3 offset = chunkCenter+terrainPosition;
         bool update = false;
-        if      (offset.x > chunkSize* 0.4f) { chunkCenter.x += chunkSize*0.5f; update = true; }
-        else if (offset.x < chunkSize*-0.4f) { chunkCenter.x -= chunkSize*0.5f; update = true; }
-        if      (offset.z > chunkSize* 0.4f) { chunkCenter.z += chunkSize*0.5f; update = true; }
-        else if (offset.z < chunkSize*-0.4f) { chunkCenter.z -= chunkSize*0.5f; update = true; }
+        if      (offset.x > chunkSize* 0.4f) { chunkCenter.x -= chunkSize*0.5f; update = true; }
+        else if (offset.x < chunkSize*-0.4f) { chunkCenter.x += chunkSize*0.5f; update = true; }
+        if      (offset.z > chunkSize* 0.4f) { chunkCenter.z -= chunkSize*0.5f; update = true; }
+        else if (offset.z < chunkSize*-0.4f) { chunkCenter.z += chunkSize*0.5f; update = true; }
         if (update) UpdateChunks();
 
         Vec4 heightParams = new Vec4();
