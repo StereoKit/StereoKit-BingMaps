@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="BingMapsRESTToolkit" Version="1.1.4" />
-    <PackageReference Include="StereoKit" Version="0.1.10-preview6" />
+    <PackageReference Include="StereoKit" Version="0.1.10-preview9" />
   </ItemGroup>
 
   <ItemGroup>

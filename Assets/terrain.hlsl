@@ -68,5 +68,6 @@ float4 ps(psIn input) : SV_TARGET{
 	// Add a little highlight around the edge of the clip radius
 	float  fade = 1-saturate(dist_field*300);
 	color.rgb += fade;
+
 	return color;
 }

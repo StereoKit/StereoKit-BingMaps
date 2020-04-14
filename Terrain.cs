@@ -35,9 +35,9 @@ class Terrain
 
 	public Terrain(int chunkDetail, float chunkSize, int chunkGrid)
 	{
-		this.chunkSize  = chunkSize;
-		chunkCenter     = Vec3.Zero;
-		localPosition   = Vec3.Zero;
+		this.chunkSize = chunkSize;
+		chunkCenter    = Vec3.Zero;
+		localPosition  = Vec3.Zero;
 
 		// Assets that the terrain needs to render! terrain.hlsl is an 
 		// important part of this terrain code, which does not stand on its 
@@ -125,26 +125,20 @@ class Terrain
 		// Hierarchy functionality still works. For simplicity, this terrain 
 		// does not account for rotation, so if that's embedded in the
 		// Hierachy, we'll get undefined behavior.
-		Vec4 heightParams = new Vec4();
-		heightParams.XY = Hierarchy.ToWorld         (localPosition + heightmapStart.X0Y).XZ;
-		heightParams.ZW = Hierarchy.ToWorldDirection(heightmapSize.XZ.X0Y).XZ;
-		Material["world_size"] = heightParams;
+		Material["world_size"] = new Vec4(
+			Hierarchy.ToWorld(localPosition + heightmapStart.X0Y).XZ,
+			Hierarchy.ToWorldDirection(heightmapSize.X0Z).XZ);
 
-		Vec4 colorParams = new Vec4();
-		colorParams.XY = Hierarchy.ToWorld         (localPosition + colormapStart.X0Y).XZ;
-		colorParams.ZW = Hierarchy.ToWorldDirection(colormapSize.X0Y).XZ;
-		Material["color_size"] = colorParams;
+		Material["color_size"] = new Vec4(
+			Hierarchy.ToWorld(localPosition + colormapStart.X0Y).XZ,
+			Hierarchy.ToWorldDirection(colormapSize.X0Y).XZ);
 
 		// Do the same for the shader clip parameters! Note that clip radius 
 		// is provided as squared clip radius, which is an easy optimization
 		// to skip an extra multiply in the pixel shader.
 		Vec3 sizes            = Hierarchy.ToWorldDirection(new Vec3(clipRadius, heightmapSize.y, 0));
 		Vec3 clipCenterShader = Hierarchy.ToWorld(Vec3.Zero);
-		Material["clip_vars"] = new Vec4(
-			clipCenterShader.x,
-			clipCenterShader.y,
-			clipCenterShader.z,
-			sizes.x * sizes.x);
+		Material["clip_vars"] = new Vec4(clipCenterShader, sizes.x*sizes.x);
 		Material["world_height"] = sizes.y;
 
 		// Draw each terrain chunk!
