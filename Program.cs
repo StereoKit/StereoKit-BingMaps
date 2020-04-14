@@ -42,7 +42,7 @@ class Program
 	{
 		// Initialize the StereoKit application
 		StereoKitApp.settings.assetsFolder = "Assets";
-		if (!StereoKitApp.Initialize("StereoKit_BingMaps", Runtime.Flatscreen))
+		if (!StereoKitApp.Initialize("StereoKit_BingMaps", Runtime.MixedReality))
 			Environment.Exit(1);
 
 		Initialize();
