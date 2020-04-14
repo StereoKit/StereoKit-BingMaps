@@ -6,7 +6,7 @@ class Program
 {
 	// You can get a Bing Maps API key here:
 	// https://www.bingmapsportal.com/Application
-	static private string ApiKey = "AgANbJTAVjCk4Xi68UHeJPzj02dFj372ibzCJCU99hXihIz_DkAJZqFf_b4V--uN";
+	static private string ApiKey = "[Your API Key Here]";
 
 	static BoundingBox[] locationQueries = new BoundingBox[] {
 		Geo.LatLonBounds( 22,    -159.5, 20000), // LatLon of Kauai
