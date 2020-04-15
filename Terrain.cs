@@ -1,7 +1,19 @@
-﻿using StereoKit;
+﻿// This file is for the terrain visuals! It maintains a grid of geometry 
+// chunks for the height mesh and centers them around the active focus point,
+// clipping values that control the circular clipping outline of the terrain, 
+// and maintians a deep relationship with the terrain shader that drives a 
+// lot of the rendering.
+//
+// Since a lot of this class's focus is maintaing shader values, it can be
+// helpful to review the terrain.hlsl file in addition to this one.
+
+using StereoKit;
 
 class Terrain
 {
+	// The Terrain overall is composed of a grid of Terrain Chunks. These 
+	// chunks then shift around to stay centered on the active, visible part
+	// of the terrain.
 	struct Chunk 
 	{
 		public Vec3   centerOffset;

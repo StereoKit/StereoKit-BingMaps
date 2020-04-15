@@ -1,4 +1,14 @@
-﻿using BingMapsRESTToolkit;
+﻿// This file contains a pair of Bing Maps API requests! One for color, and 
+// one for elevation. It'll execute these asynchronously, so they don't block
+// the application, and will notify a callback method with a texture 
+// generated from the data, as well as the size of the data received.
+//
+// The data structures ImageryRequest and ElevationRequest have a whole pile
+// of parameters packed away in them, so these are great places to start 
+// messing around to see what additional information and configuration you 
+// can get!
+
+using BingMapsRESTToolkit;
 using StereoKit;
 using System;
 using System.IO;

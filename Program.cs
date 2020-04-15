@@ -1,3 +1,15 @@
+// This is the application logic! Before you try to run this code, make sure
+// you create and add your Bing Maps API key, check the top of the Program 
+// class for a link, and where you need to add the key.
+//
+// The experience focuses around a terrain map placed on a circular pedestal!
+// The pedestal itself can move around, and has a small UI attached to
+// control the map a bit. The map can change locations, and pan/scale around.
+//
+// This file contains the code for the pedestal and associated UI and 
+// interaction. The Terrain and Bing Maps portions are separated off into 
+// their own files!
+
 using System;
 using BingMapsRESTToolkit;
 using StereoKit;
@@ -49,7 +61,8 @@ class Program
 
 		while (StereoKitApp.Step(() =>
 		{
-			// We might not have a floor model if we're in AR!
+			// If we're in AR, we don't initialize floorMesh, hence the '?'
+			// operator! The real world should already have a floor :)
 			floorMesh?.Draw(floorMat, Matrix.T(0,-1.5f,0));
 
 			// Draw the terrain widget!
@@ -68,7 +81,10 @@ class Program
 		compassModel  = Model.FromFile("Compass.glb");
 		widgetModel   = Model.FromFile("MoveWidget.glb");
 
-		terrain = new Terrain(64, 0.6f, 2);
+		terrain = new Terrain(
+			chunkDetail: 64, 
+			chunkSize:   0.6f, 
+			chunkGrid:   2);
 		terrain.clipRadius = 0.3f;
 
 		// Add a floor if we're in VR, and hide the hands if we're in AR!
@@ -93,9 +109,10 @@ class Program
 
 	static void ShowTerrainWidget()
 	{
-		// Create an affordance for the pedestal the terrain and UI will rest
-		// on. The user can drag this around the environment, but it doesn't
-		// rotate at all.
+		// Create an affordance for the pedestal that the terrain and UI will
+		// rest on. The user can drag this around the environment, but it 
+		// doesn't rotate at all. The pedestal model asset has a diameter of 
+		// 1, or radius of 0.5, so the proper scale is radius * 2!
 		float pedestalScale = terrain.clipRadius * 2;
 		UI.AffordanceBegin("TerrainWidget", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
 		pedestalModel.Draw(Matrix.TS(Vec3.Zero, pedestalScale));
@@ -180,7 +197,8 @@ class Program
 		if (dragActive || handInVolume) 
 		{
 			// Render a little compass widget between the fingers, as an 
-			// indicator that users can grab/pinch it to move the map.
+			// indicator that users can grab/pinch it to move the map. We
+			// also scale and brighten the widget when it's active.
 			float activeMod = dragActive ? 1.5f : 1;
 			widgetModel.Draw(Matrix.TS(widgetPos, activeMod), Color.White*activeMod);
 
