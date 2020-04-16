@@ -1,4 +1,10 @@
-﻿using BingMapsRESTToolkit;
+﻿// This file contains logic and math for working with latitude and longitude
+// values. Bing Maps uses lat/lon for many of their parameters, and these 
+// aren't always intuitive or simple to draw them on screen in 3D. So these
+// functions are largely just converting values to and from 2D grids of 
+// meters.
+
+using BingMapsRESTToolkit;
 using StereoKit;
 using System;
 
