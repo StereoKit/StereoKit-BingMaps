@@ -114,7 +114,7 @@ class Program
 		// doesn't rotate at all. The pedestal model asset has a diameter of 
 		// 1, or radius of 0.5, so the proper scale is radius * 2!
 		float pedestalScale = terrain.clipRadius * 2;
-		UI.AffordanceBegin("TerrainWidget", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
+		UI.HandleBegin("TerrainWidget", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
 		pedestalModel.Draw(Matrix.TS(Vec3.Zero, pedestalScale));
 
 		// We've got a simple UI attached to the pedestal, just a list of 
@@ -124,7 +124,7 @@ class Program
 		Vec3 uiDir  = CalcPedestalUIDir();
 		Pose uiPose = new Pose(uiDir * (terrain.clipRadius + 0.04f), Quat.LookDir(uiDir+Vec3.Up));
 		compassModel.Draw(Matrix.TS(uiDir * (terrain.clipRadius + 0.01f) + Vec3.Up * 0.02f, 0.4f));
-		UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(30,0) * Units.cm2m, false);
+		UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(30,0) * Units.cm2m, UIWin.Empty);
 
 		// Show location buttons
 		Vec2 btnSize = new Vec2(6, 3) * Units.cm2m;
@@ -148,7 +148,7 @@ class Program
 		// Now we'll display the terrain on top of the pedestal!
 		ShowTerrain();
 
-		UI.AffordanceEnd(); // End TerrainWidget
+		UI.HandleEnd(); // End TerrainWidget
 	}
 
 	///////////////////////////////////////////
