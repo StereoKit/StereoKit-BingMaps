@@ -12,8 +12,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="Assets\terrain.hlsl" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BingMapsRESTToolkit" Version="1.1.4" />
-    <PackageReference Include="StereoKit" Version="0.2.0" />
+    <PackageReference Include="StereoKit" Version="0.3.0-preview.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <SKShader Include="Assets\terrain.hlsl">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </SKShader>
   </ItemGroup>
 
   <ItemGroup>
@@ -28,9 +38,6 @@
     </None>
     <None Update="Assets\Pedestal.glb">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Assets\terrain.hlsl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 

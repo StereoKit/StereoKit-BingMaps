@@ -53,13 +53,17 @@ class Program
 	static void Main(string[] args)
 	{
 		// Initialize the StereoKit application
-		StereoKitApp.settings.assetsFolder = "Assets";
-		if (!StereoKitApp.Initialize("StereoKit_BingMaps", Runtime.MixedReality))
+		SKSettings settings = new SKSettings
+		{
+			appName      = "StereoKit_BingMaps",
+			assetsFolder = "Assets",
+		};
+		if (!SK.Initialize(settings))
 			Environment.Exit(1);
 
 		Initialize();
 
-		while (StereoKitApp.Step(() =>
+		while (SK.Step(() =>
 		{
 			// If we're in AR, we don't initialize floorMesh, hence the '?'
 			// operator! The real world should already have a floor :)
@@ -69,7 +73,7 @@ class Program
 			ShowTerrainWidget();
 		}));
 
-		StereoKitApp.Shutdown();
+		SK.Shutdown();
 	}
 
 	///////////////////////////////////////////
@@ -88,7 +92,7 @@ class Program
 		terrain.clipRadius = 0.3f;
 
 		// Add a floor if we're in VR, and hide the hands if we're in AR!
-		if (StereoKitApp.System.displayType == Display.Opaque) 
+		if (SK.System.displayType == Display.Opaque) 
 		{ 
 			floorMesh = Mesh.GeneratePlane(new Vec2(10, 10));
 			floorMat  = Default.Material.Copy();
@@ -158,7 +162,7 @@ class Program
 		// Get the angle from the center of the pedestal to the user's head,
 		// flatten it on the Y axis, and normalize it for angle calculations.
 		Vec3 dir = Input.Head.position - terrainPose.position;
-		dir = dir.XZ.Normalized().X0Y;
+		dir = dir.XZ.Normalized.X0Y;
 
 		// Use a 'sticky' algorithm for updating the angle of the UI. We snap
 		// to increments of 60 degrees, but only do it after we've traveled 
