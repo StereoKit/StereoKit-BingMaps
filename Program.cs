@@ -81,7 +81,7 @@ class Program
 	static void Initialize()
 	{
 		// Art resources for the terrain widget
-		pedestalModel = Model.FromFile("Pedestal.glb", Default.ShaderUI);
+		pedestalModel = Model.FromFile("Pedestal.glb", Shader.UI);
 		compassModel  = Model.FromFile("Compass.glb");
 		widgetModel   = Model.FromFile("MoveWidget.glb");
 
@@ -119,7 +119,7 @@ class Program
 		// 1, or radius of 0.5, so the proper scale is radius * 2!
 		float pedestalScale = terrain.clipRadius * 2;
 		UI.HandleBegin("TerrainWidget", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
-		pedestalModel.Draw(Matrix.TS(Vec3.Zero, pedestalScale));
+		pedestalModel.Draw(Matrix.S(pedestalScale));
 
 		// We've got a simple UI attached to the pedestal, just a list of 
 		// places we can display, and a scale slider. It'll face towards the
@@ -142,7 +142,7 @@ class Program
 
 		// Scale slider to zoom in and out
 		float uiScale = terrainScale;
-		if (UI.HSlider("Scale", ref uiScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m))
+		if (UI.HSlider("Scale", ref uiScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m, UIConfirm.Pinch))
 		{ 
 			SetScale(uiScale);
 		}
