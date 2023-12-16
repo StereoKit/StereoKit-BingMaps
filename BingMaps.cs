@@ -98,20 +98,19 @@ static class BingMaps
 			return;
 		}
 
-		// Convert the elevation data we've received into a grayscale heightmap texture!
+		// Convert the elevation data we've received into a heightmap texture!
 		ElevationData data    = response.ResourceSets[0].Resources[0] as ElevationData;
-		Color[]       heights = new Color[32 * 32];
+		float[]       heights = new float[32 * 32];
 		for (int y = 0; y < 32; y++) {
 		for (int x = 0; x < 32; x++) {
-			float height = data.Elevations[x+y*32] / Geo.EarthTallest;
 			// Height data is provided upside-down, so we're flipping it with
 			// this index on the Y axis.
-			heights[x+(31-y)*32] = Color.White * height;
+			heights[x+(31-y)*32] = data.Elevations[x+y*32] / Geo.EarthTallest;
 		}}
 
-		// Create a texture from the elevation data! We're storing it as 
-		// Rgba128 to preserve floating point precision in the height values.
-		Tex texture = new Tex(TexType.ImageNomips, TexFormat.Rgba128);
+		// Create a texture from the elevation data! We're storing it as
+		// R32 to preserve floating point precision in the height values.
+		Tex texture = new Tex(TexType.ImageNomips, TexFormat.R32);
 		texture.SetColors(32, 32, heights);
 		texture.AddressMode = TexAddress.Clamp;
 

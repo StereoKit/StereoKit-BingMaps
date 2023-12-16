@@ -55,7 +55,7 @@ class Terrain
 		// important part of this terrain code, which does not stand on its 
 		// own without the shader. To completely undestand this code, you'll
 		// also need to look at the shader!
-		Material = new Material(Shader.FromFile("terrain.hlsl"));
+		Material = new Material("terrain.hlsl");
 		mesh     = Mesh.GeneratePlane(Vec2.One * chunkSize, chunkDetail);
 
 		// Each chunk gets an offset from the center. We never modify the 

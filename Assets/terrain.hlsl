@@ -1,5 +1,3 @@
-//--name = app/terrain
-
 #include <stereokit.hlsli>
 
 ///////////////////////////////////////////

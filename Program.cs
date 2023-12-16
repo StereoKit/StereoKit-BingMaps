@@ -63,7 +63,7 @@ class Program
 
 		Initialize();
 
-		while (SK.Step(() =>
+		SK.Run(() =>
 		{
 			// If we're in AR, we don't initialize floorMesh, hence the '?'
 			// operator! The real world should already have a floor :)
@@ -71,9 +71,7 @@ class Program
 
 			// Draw the terrain widget!
 			ShowTerrainWidget();
-		}));
-
-		SK.Shutdown();
+		});
 	}
 
 	///////////////////////////////////////////
@@ -86,8 +84,8 @@ class Program
 		widgetModel   = Model.FromFile("MoveWidget.glb");
 
 		terrain = new Terrain(
-			chunkDetail: 64, 
-			chunkSize:   0.6f, 
+			chunkDetail: 64,
+			chunkSize:   0.6f,
 			chunkGrid:   2);
 		terrain.clipRadius = 0.3f;
 
@@ -95,9 +93,9 @@ class Program
 		if (SK.System.displayType == Display.Opaque) 
 		{ 
 			floorMesh = Mesh.GeneratePlane(new Vec2(10, 10));
-			floorMat  = Default.Material.Copy();
+			floorMat  = Material.Default.Copy();
 			floorMat[MatParamName.DiffuseTex] = Tex.FromFile("floor.png");
-			floorMat[MatParamName.TexScale  ] = 8;
+			floorMat[MatParamName.TexScale  ] = 8.0f;
 		}
 		else
 		{
@@ -118,6 +116,7 @@ class Program
 		// doesn't rotate at all. The pedestal model asset has a diameter of 
 		// 1, or radius of 0.5, so the proper scale is radius * 2!
 		float pedestalScale = terrain.clipRadius * 2;
+		UI.EnableFarInteract = false; // This widget doesn't work so well with far interact!
 		UI.HandleBegin("TerrainWidget", ref terrainPose, pedestalModel.Bounds*pedestalScale, false, UIMove.PosOnly);
 		pedestalModel.Draw(Matrix.S(pedestalScale));
 
@@ -128,10 +127,12 @@ class Program
 		Vec3 uiDir  = CalcPedestalUIDir();
 		Pose uiPose = new Pose(uiDir * (terrain.clipRadius + 0.04f), Quat.LookDir(uiDir+Vec3.Up));
 		compassModel.Draw(Matrix.TS(uiDir * (terrain.clipRadius + 0.01f) + Vec3.Up * 0.02f, 0.4f));
-		UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(30,0) * Units.cm2m, UIWin.Empty);
+
+		Vec2  btnSize     = new Vec2(0.08f, 0.03f);
+		float windowWidth = btnSize.x*4 + UI.Settings.gutter*3 + UI.Settings.margin*2;
+		UI.WindowBegin("TerrainOptions", ref uiPose, new Vec2(windowWidth,0), UIWin.Empty);
 
 		// Show location buttons
-		Vec2 btnSize = new Vec2(6, 3) * Units.cm2m;
 		if (UI.Radio("Kauai",        locationId == 0, btnSize)) LoadLocation(0);
 		UI.SameLine();
 		if (UI.Radio("Grand Canyon", locationId == 1, btnSize)) LoadLocation(1);
@@ -142,7 +143,7 @@ class Program
 
 		// Scale slider to zoom in and out
 		float uiScale = terrainScale;
-		if (UI.HSlider("Scale", ref uiScale, 0.00003f, 0.00005f, 0, 27*Units.cm2m, UIConfirm.Pinch))
+		if (UI.HSlider("Scale", ref uiScale, 0.00003f, 0.00005f, 0, 0, UIConfirm.Pinch))
 		{ 
 			SetScale(uiScale);
 		}
@@ -153,6 +154,7 @@ class Program
 		ShowTerrain();
 
 		UI.HandleEnd(); // End TerrainWidget
+		UI.EnableFarInteract = true;
 	}
 
 	///////////////////////////////////////////
@@ -193,7 +195,7 @@ class Program
 		// the user's hand drag action.
 		Hand hand      = Input.Hand(Handed.Right);
 		Vec3 widgetPos = Hierarchy.ToLocal(
-			hand[FingerId.Index, JointId.Tip].position * 0.5f + 
+			hand[FingerId.Index, JointId.Tip].position * 0.5f +
 			hand[FingerId.Thumb, JointId.Tip].position * 0.5f);
 		bool handInVolume = widgetPos.y > 0
 				&& widgetPos.XZ.Magnitude < terrain.clipRadius; // For speed, use MagnitudeSq and clipRadius^2
