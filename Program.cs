@@ -55,8 +55,7 @@ class Program
 		// Initialize the StereoKit application
 		SKSettings settings = new SKSettings
 		{
-			appName      = "StereoKit_BingMaps",
-			assetsFolder = "Assets",
+			appName = "StereoKit_BingMaps",
 		};
 		if (!SK.Initialize(settings))
 			Environment.Exit(1);
@@ -90,12 +89,12 @@ class Program
 		terrain.clipRadius = 0.3f;
 
 		// Add a floor if we're in VR, and hide the hands if we're in AR!
-		if (SK.System.displayType == Display.Opaque) 
+		if (Device.DisplayBlend == DisplayBlend.Opaque)
 		{ 
 			floorMesh = Mesh.GeneratePlane(new Vec2(10, 10));
 			floorMat  = Material.Default.Copy();
 			floorMat[MatParamName.DiffuseTex] = Tex.FromFile("floor.png");
-			floorMat[MatParamName.TexScale  ] = 8.0f;
+			floorMat[MatParamName.TexTransform  ] = new Vec4(0,0, 8.0f, 8.0f);
 		}
 		else
 		{

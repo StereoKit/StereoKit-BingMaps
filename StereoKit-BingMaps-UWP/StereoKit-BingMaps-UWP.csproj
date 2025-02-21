@@ -97,7 +97,7 @@
       <Version>1.1.4</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
-    <PackageReference Include="StereoKit" Version="0.3.8" />
+    <PackageReference Include="StereoKit" Version="0.3.10" />
     <!--Match any version before 1.0-->
   </ItemGroup>
   <PropertyGroup Condition=" '$(VisualStudioVersion)' == '' or '$(VisualStudioVersion)' &lt; '16.0' ">
